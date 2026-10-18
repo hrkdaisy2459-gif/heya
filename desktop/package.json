@@ -1,0 +1,13 @@
+{
+  "name": "heya",
+  "version": "0.1.0",
+  "description": "画面のすみに置いておく小さな部屋。家具がアラーム・タイマー・メモ・Todoになる作業のお供。",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^33.2.0"
+  }
+}

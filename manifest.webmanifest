@@ -1,0 +1,11 @@
+{
+  "name": "へや",
+  "short_name": "へや",
+  "description": "画面のすみに置いておく小さな部屋。家具がアラーム・タイマー・メモ・Todoになる。",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#23212b",
+  "theme_color": "#2a2e39",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}
