@@ -31,7 +31,7 @@
     { id: 3, room: 'main', type: 'window', x: 112, y: 62 },
     { id: 4, room: 'main', type: 'lamp', x: 150, d: 0.05, on: true },
     { id: 5, room: 'main', type: 'desk', x: 205, d: 0.05 },
-    { id: 6, room: 'main', type: 'clock', x: 205, y: 32 },
+    { id: 6, room: 'main', type: 'clock', x: 205, y: 34 },
     { id: 7, room: 'main', type: 'board', x: 266, y: 56 },
     { id: 8, room: 'main', type: 'calendar', x: 300, y: 54 },
     { id: 9, room: 'main', type: 'timer', x: 276, d: 0.05 },
@@ -303,15 +303,19 @@
   function stateFor(it, frame) {
     const now = new Date();
     switch (it.type) {
-      case 'clock': return { h: now.getHours(), m: now.getMinutes(), alarm: S.alarms.some(a => a.on) };
+      case 'clock': return { h: now.getHours(), m: now.getMinutes(), s: now.getSeconds(), alarm: S.alarms.some(a => a.on) };
       case 'timer': {
         const p = S.pomo;
         if (p.phase !== 'idle') {
           const left = pomoLeft();
-          return { lcd: lcdText(left), mode: p.phase, blinkOff: !p.running && !blinkOn };
+          return { lcd: lcdText(left), mode: p.phase, blinkOff: !p.running && !blinkOn, prog: 1 - left / (p.cur * 60000) };
         }
         const left = timerLeft(), paused = !S.timer.running && left > 0 && left < S.timer.dur;
-        return { lcd: lcdText(left), mode: 'timer', blinkOff: (ring?.kind === 'timer' || paused) && !blinkOn };
+        if (S.timer.running || paused || ring?.kind === 'timer') {
+          return { lcd: lcdText(left), mode: 'timer', blinkOff: (ring?.kind === 'timer' || paused) && !blinkOn, prog: 1 - left / S.timer.dur };
+        }
+        // 使っていないときは今の時刻
+        return { lcd: `${pad(now.getHours())}:${pad(now.getMinutes())}`, mode: 'clock', colonOff: now.getSeconds() % 2 === 1 };
       }
       case 'board': return { todos: S.todos.filter(t => !t.done).length };
       case 'desk': return { memo: S.memos.some(m => m.text.trim()) };

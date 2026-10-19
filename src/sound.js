@@ -77,10 +77,12 @@
     },
     waves: {
       start() {
-        const g = gain(0.18);
-        noise().connect(filt('lowpass', 700)).connect(g).connect(bgmGain);
-        const lfo = ctx.createOscillator(), depth = gain(0.16);
-        lfo.frequency.value = 0.09; lfo.connect(depth).connect(g.gain); lfo.start(); nodes.push(lfo);
+        // 低いザーッという音と、波が砕けるシャーッという音。どちらもゆっくり寄せては返す
+        const g = gain(0.7), g2 = gain(0.22);
+        noise().connect(filt('lowpass', 900)).connect(g).connect(bgmGain);
+        noise().connect(filt('bandpass', 2500, 0.6)).connect(g2).connect(bgmGain);
+        const lfo = ctx.createOscillator(), depth = gain(0.55), depth2 = gain(0.2);
+        lfo.frequency.value = 0.1; lfo.connect(depth).connect(g.gain); lfo.connect(depth2).connect(g2.gain); lfo.start(); nodes.push(lfo);
       },
       tick() {},
     },

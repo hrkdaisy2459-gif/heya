@@ -333,16 +333,23 @@
   const NOTE_COLS = ['#ffe58a', '#ffb3c6', '#a8dcf5', '#bde8a8', '#ffe58a', '#ffcf9e'];
   const TYPES = {
     clock: {
-      name: '時計', tool: 'alarm', wall: true, w: 15, h: 15, y: 32,
-      key: st => `${st.h % 12}:${Math.floor(st.m / 5)}:${st.alarm ? 1 : 0}`,
+      // 本物の時刻どおりに、時針・分針・秒針が動く
+      name: '時計', tool: 'alarm', wall: true, w: 21, h: 21, y: 34,
+      key: st => `${st.h % 12}:${st.m}:${st.s}:${st.alarm ? 1 : 0}`,
       draw(P, st) {
-        P.ell(7, 7, 7, 7, C.pinkD).ell(7, 7, 6, 6, C.white);
-        P.p(7, 2, C.pinkD).p(12, 7, C.pinkD).p(7, 12, C.pinkD).p(2, 7, C.pinkD);
-        const ma = (Math.floor(st.m / 5) * 5 / 60) * Math.PI * 2, ha = ((st.h % 12) / 12 + st.m / 720) * Math.PI * 2;
-        P.line(7, 7, 7 + Math.sin(ma) * 5, 7 - Math.cos(ma) * 5, OUTLINE);
-        P.line(7, 7, 7 + Math.sin(ha) * 3.4, 7 - Math.cos(ha) * 3.4, OUTLINE);
-        P.p(7, 7, '#e0485e');
-        if (st.alarm) P.r(12, -1, 3, 3, '#ff5a6e').p(13, 0, '#ffd0d6');
+        const c = 10, TAU = Math.PI * 2;
+        P.ell(c, c, 10, 10, C.pinkD).ell(c, c, 9, 9, C.white);
+        for (let i = 0; i < 12; i++) { // 目盛り（3・6・9・12時は2つ）
+          const a = i / 12 * TAU, x = Math.round(c + Math.sin(a) * 7.6), y = Math.round(c - Math.cos(a) * 7.6);
+          P.p(x, y, i % 3 ? '#e8b4c3' : C.pinkD);
+          if (i % 3 === 0) P.p(Math.round(c + Math.sin(a) * 6.6), Math.round(c - Math.cos(a) * 6.6), C.pinkD);
+        }
+        const ha = ((st.h % 12) + st.m / 60) / 12 * TAU, ma = (st.m + st.s / 60) / 60 * TAU, sa = st.s / 60 * TAU;
+        P.line(c, c, c + Math.sin(ha) * 4.4, c - Math.cos(ha) * 4.4, OUTLINE);
+        P.line(c, c, c + Math.sin(ma) * 7, c - Math.cos(ma) * 7, '#5b4a66');
+        P.line(c, c, c + Math.sin(sa) * 7.5, c - Math.cos(sa) * 7.5, '#ff5a6e');
+        P.p(c, c, '#e0485e');
+        if (st.alarm) P.r(17, -1, 4, 4, '#ff5a6e').r(18, 0, 2, 2, '#ffd0d6');
       },
     },
     board: {
@@ -373,11 +380,18 @@
     },
     timer: {
       name: 'タイマー棚', tool: 'timer', w: 24, h: 25,
-      key: st => `${st.lcd}:${st.blinkOff ? 1 : 0}:${st.mode}`,
+      // 使っていないときは今の時刻、使っているときは残り時間と進み具合のバー
+      key: st => `${st.lcd}:${st.blinkOff ? 1 : 0}:${st.colonOff ? 1 : 0}:${st.mode}:${Math.round((st.prog || 0) * 20)}`,
       draw(P, st) {
+        const bg = st.mode === 'break' ? '#bfe3f0' : st.mode === 'work' ? '#ffd6c4' : st.mode === 'clock' ? '#d6e8b8' : '#c4dba3';
         P.r(1, 0, 22, 10, '#fdfdff').r(1, 0, 22, 1, '#ffffff').r(3, -1, 3, 1, '#ff5a6e').r(18, -1, 3, 1, C.metal);
-        P.r(2, 1, 20, 7, st.mode === 'break' ? '#bfe3f0' : st.mode === 'work' ? '#ffd6c4' : '#c4dba3');
-        if (!st.blinkOff) { const w = textWidth(st.lcd); P.text(Math.round(12 - w / 2), 2, st.lcd, '#2f3a2a'); }
+        P.r(2, 1, 20, 7, bg);
+        if (!st.blinkOff) {
+          const w = textWidth(st.lcd), x = Math.round(12 - w / 2);
+          P.text(x, 2, st.lcd, '#2f3a2a');
+          if (st.colonOff) P.r(x + textWidth(st.lcd.slice(0, 2)) + 1, 2, 1, 5, bg); // 時刻の「:」を点滅
+        }
+        if (st.prog != null) P.r(2, 7, Math.round(20 * st.prog), 1, st.mode === 'break' ? '#5b9bd5' : '#e2475e');
         P.r(0, 10, 24, 2, C.mintL).r(0, 12, 24, 13, C.mint).r(0, 18, 24, 1, C.mintD);
         P.r(10, 14, 4, 1, C.mintD).r(10, 21, 4, 1, C.mintD);
         if (st.mode === 'work' || st.mode === 'break') { // トマト
