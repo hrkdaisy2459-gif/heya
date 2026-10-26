@@ -453,6 +453,19 @@
         P.r(0, 0, 24, 1, '#f0b07a');
       },
     },
+    // 床のサンプル（壁に貼る見本）
+    sampleFloorWall: {
+      name: '床サンプル', wall: true, w: 24, h: 28, y: 58, key: st => st.ref,
+      draw(P, st) {
+        const F = A.FLOORS[st.ref] || A.FLOORS.wood;
+        P.r(0, 0, 24, 28, '#8e5638');
+        for (let y = 0; y < 24; y++) for (let x = 0; x < 20; x++) {
+          const col = F.kind === 'herring' ? ((Math.floor(x / 4) + Math.floor(y / 2)) % 2 ? F.a : F.b) : F.kind === 'checker' ? ((Math.floor(x / 5) + Math.floor(y / 5)) % 2 ? F.a : F.b) : F.kind === 'plain' ? ((x * 7 + y * 3) % 11 ? F.a : F.b) : (Math.floor(x / 5) % 2 ? F.a : F.b);
+          P.p(2 + x, 2 + y, col);
+        }
+        P.r(0, 0, 24, 1, '#b9774e');
+      },
+    },
     sampleFloor: {
       name: '床サンプル', w: 30, h: 8, key: st => st.ref,
       draw(P, st) {

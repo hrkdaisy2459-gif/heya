@@ -261,7 +261,6 @@
       <canvas class="room" id="room"></canvas>
       <div class="bubble" id="bubble" hidden></div>
       <div class="bubble cat" id="bubble2" hidden></div>
-      <div class="corner" id="corner" hidden></div>
       <button class="nav l" id="navL" aria-label="左へ">◀</button>
       <button class="nav r" id="navR" aria-label="右へ">▶</button>
       <div class="ringbar" id="ringbar" hidden><span id="ringText"></span><button id="ringStop">止める</button></div>
@@ -637,12 +636,6 @@
     const b2 = $('bubble2'), catTalking = S.room === 'shop' && catPos && catTalk && now < catTalkUntil && catPos.x > -4 && catPos.x < vw + 4;
     b2.hidden = !catTalking;
     if (catTalking) { b2.textContent = catTalk; b2.style.left = clamp(catPos.x * sc, 50, vw * sc - 50) + 'px'; b2.style.top = Math.max(26, (catPos.y - 1) * sc) + 'px'; }
-    const corner = $('corner');
-    corner.hidden = S.room !== 'shop';
-    if (S.room === 'shop') {
-      const cx = room.cam + vw / 2, sg = shopRoom.segs.find(q => cx >= q.x0 && cx < q.x1) || shopRoom.segs[0];
-      if (corner.dataset.k !== sg.key) { corner.dataset.k = sg.key; corner.innerHTML = `<b>${esc(sg.label)}</b><small>${esc(sg.desc)}</small>`; }
-    }
     if (talking) {
       bubble.textContent = ch.say;
       const bx = clamp(headPos.x * sc, 50, vw * sc - 50);
@@ -1352,68 +1345,52 @@
 
   /* お店の中（歩ける部屋）。コーナーごとに壁紙・床・看板・照明が変わる */
   function buildShop() {
-    const items = [], segs = [];
-    let x = 0, nid = -1;
+    // せまいお店：入口・レジ・図鑑 → 売り物（奥にまとめて並べる。壁紙・床は壁にサンプル）→ ガチャ1台
+    const items = [];
+    let nid = -1;
     const add = o => { const it = { id: nid--, room: 'shop', ...o }; items.push(it); return it; };
-    function corner(key, label, desc, wall, floor, fill) {
-      const x0 = x, cur = { back: x0 + 12, wall: x0 + 12, front: x0 + 18 }, tall = [], later = [];
-      const P = {
-        cur,
-        back(type, o = {}) {
-          const w = TYPES[type].w; const it = add({ type, x: cur.back + w / 2, d: 0.05, ...o }); cur.back += w + (o.gap ?? 10);
-          if (TYPES[type].h > 18) tall.push([it.x - w / 2, it.x + w / 2]);
-          return it;
-        },
-        wall(type, o = {}) {
-          // 背の高い家具のうしろに隠れないように、横にずらす
-          const t = TYPES[type];
-          let xl = cur.wall, hit;
-          while ((hit = tall.find(([a, b]) => xl < b + 4 && xl + t.w > a - 4))) xl = hit[1] + 6;
-          const it = add({ type, x: xl + t.w / 2, y: Math.max(t.y, t.h + 30), ...o }); cur.wall = xl + t.w + (o.gap ?? 10); return it;
-        },
-        front(type, o = {}) { const w = TYPES[type].w; const it = add({ type, x: cur.front + w / 2, d: 0.5, ...o }); cur.front += w + (o.gap ?? 12); return it; },
-        product(it, now) {
-          const isWall = it.kind === 'wall' || (it.kind === 'fur' && TYPES[it.ref].wall);
-          if (isWall && !now) { later.push(it); return; }
-          const base = { shopId: it.id, disp: true };
-          if (it.kind === 'fur') {
-            const t = TYPES[it.ref];
-            if (t.wall) return P.wall(it.ref, base);
-            if (t.h <= 18 && t.w <= 20) return P.front(it.ref, { ...base, ped: true, gap: 16 });
-            return P.back(it.ref, base);
-          }
-          if (it.kind === 'outfit') return P.front('mannequin', { ...base, ref: it.ref });
-          if (it.kind === 'hair') return P.front('wig', { ...base, ref: it.ref });
-          if (it.kind === 'hairColor') return P.front('dye', { ...base, ref: it.ref, ped: true, gap: 16 });
-          if (it.kind === 'wall') return P.wall('sampleWall', { ...base, ref: it.ref });
-          if (it.kind === 'floor') return P.front('sampleFloor', { ...base, ref: it.ref, d: 0.62 });
-        },
-      };
-      fill(P);
-      later.forEach(it => P.product(it, true));
-      const x1 = Math.max(cur.back, cur.wall, cur.front, x0 + 120) + 8;
-      add({ type: 'hangSign', ref: key, x: Math.round((x0 + x1) / 2), y: 20 });
-      add({ type: 'pendant', x: x0 + 18, y: 24 }); add({ type: 'pendant', x: x1 - 18, y: 24 });
-      segs.push({ key, label, desc, wall, floor, x0, x1 });
-      x = x1;
+    add({ type: 'door', x: 24, d: 0.02 });
+    add({ type: 'shopWindow', x: 82, y: 72 });
+    const cnt = add({ type: 'counter', x: 74, d: 0.12 });
+    add({ type: 'shopcat', x: cnt.x + 6, d: 0.08, lift: 14 });
+    add({ type: 'lectern', x: 30, d: 0.45 });
+
+    const A0 = 112, prods = [...SHOP.ITEMS.filter(i => i.limited && limitedNow(i)), ...todaysStock()];
+    const onWall = it => it.kind === 'wall' || it.kind === 'floor' || (it.kind === 'fur' && TYPES[it.ref].wall);
+    const floorType = it => (it.kind === 'outfit' ? 'mannequin' : it.kind === 'hair' ? 'wig' : it.kind === 'hairColor' ? 'dye' : it.ref);
+    const base = it => ({ shopId: it.id, disp: true, ref: it.kind === 'fur' ? undefined : it.ref });
+    // 床に置く物：奥の列に並べ、入りきらなければ少し手前の列へ
+    const floorItems = prods.filter(it => !onWall(it));
+    const rowW = floorItems.reduce((a, it) => a + TYPES[floorType(it)].w + 10, 0);
+    const limit = Math.max(220, Math.ceil(rowW / 2) + 30);
+    const rows = [{ x: A0, d: 0.05 }, { x: A0 + 12, d: 0.3 }];
+    let r = 0;
+    const tall = [];
+    for (const it of floorItems) {
+      const type = floorType(it), t = TYPES[type];
+      if (r === 0 && rows[0].x + t.w > A0 + limit) r = 1;
+      const row = rows[r], small = t.h <= 18 && t.w <= 20;
+      const o = add({ type, x: row.x + t.w / 2, d: row.d, ped: small, ...base(it) });
+      if (t.h > 18) tall.push([o.x - t.w / 2, o.x + t.w / 2]);
+      row.x += t.w + (small ? 14 : 10);
     }
-    corner('entrance', 'レジ', '店員さんに話しかけると、商品の一覧やほしいものリストが見られます', 'shop', 'wood', P => {
-      P.back('door', { d: 0.02 });
-      P.cur.wall = P.cur.back + 4;
-      P.wall('shopWindow');
-      const cnt = P.back('counter', { d: 0.12 });
-      add({ type: 'shopcat', x: cnt.x + 6, d: 0.08, lift: 14 });
-      P.front('lectern', { d: 0.45 });
-      P.front('plant', { d: 0.55 });
-    });
-    const lim = SHOP.ITEMS.filter(i => i.limited && limitedNow(i));
-    if (lim.length) corner('season', `期間限定・${lim[0].limited.label}`, `あと${daysLeft(lim[0])}日でおしまい`, 'wood', 'dark', P => lim.forEach(P.product));
-    const deco = { luxe: ['luxe', 'herring'], street: ['brick', 'concrete'], wa: ['wa', 'tatami'], china: ['china', 'dark'] };
-    const todays = k => todaysStock().filter(i => i.series === k);
-    for (const k of Object.keys(deco)) if (todays(k).length) corner(k, SHOP.SERIES[k].name, SHOP.SERIES[k].desc, deco[k][0], deco[k][1], P => todays(k).forEach(P.product));
-    corner('classic', '定番・試着室', 'マネキンやウィッグを押すと試着できます', 'mint', 'tile', P => { P.back('fitting'); todays('classic').forEach(P.product); });
-    corner('gacha', 'カプセルトイ', `1回${SHOP.GACHA_PRICE}コイン。ここでしか手に入らない小物`, 'stars', 'carpet', P => { P.back('gachaM', { d: 0.08 }); P.back('gachaM', { d: 0.08 }); P.back('gachaM', { d: 0.08 }); P.front('plant'); });
-    ROOMS.shop.w = x;
+    // 壁に掛ける物と、壁紙・床のサンプル（背の高い家具のうしろは避ける）
+    let wx = A0;
+    for (const it of prods.filter(onWall)) {
+      const type = it.kind === 'wall' ? 'sampleWall' : it.kind === 'floor' ? 'sampleFloorWall' : it.ref, t = TYPES[type];
+      let hit;
+      while ((hit = tall.find(([a, b]) => wx < b + 4 && wx + t.w > a - 4))) wx = hit[1] + 6;
+      add({ type, x: wx + t.w / 2, y: Math.max(t.y, t.h + 30), ...base(it) });
+      wx += t.w + 10;
+    }
+    const end = Math.max(rows[0].x, rows[1].x, wx, A0 + 200) + 10;
+    add({ type: 'gachaM', x: end + 14, d: 0.06 });
+    add({ type: 'plant', x: end + 36, d: 0.5 });
+    const W = end + 46;
+    add({ type: 'hangSign', ref: 'pick', x: Math.round((A0 + end) / 2), y: 20 });
+    for (let x = 40; x < W - 10; x += 70) add({ type: 'pendant', x, y: 24 });
+    ROOMS.shop.w = W;
+    const segs = [{ key: 'shop', label: '', desc: '', wall: 'shop', floor: 'wood', x0: 0, x1: W }];
     shopRoom = { items, segs, day: dateKey() };
   }
   // 値札（2割引は赤、持っている服などは緑）
@@ -2011,7 +1988,7 @@
   for (const [rk, r] of Object.entries(S.rooms)) for (const k of ['wall', 'floor']) if (!owns(`${k}:${r[k]}`)) r[k] = DEFAULT.rooms[rk][k];
   updateCoins();
 
-  if (location.hash === '#debug') window.__heya = { S, openPanel, goRoom, startAct, earnCoins, setEditing, ch, roomItems, pomoToggle, openShop, deliver, renderShop, openBox, openItemPanel, goRoom, todaysStock, stockOn, nextStock };
+  if (location.hash === '#debug') window.__heya = { S, openPanel, goRoom, startAct, earnCoins, setEditing, ch, roomItems, pomoToggle, openShop, deliver, renderShop, openBox, openItemPanel, goRoom, todaysStock, stockOn, nextStock, drawn: () => drawn };
 
   attachHost(window);
   tick();
