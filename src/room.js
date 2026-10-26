@@ -182,18 +182,46 @@
     const price = priceOf(w);
     if (S.coins >= price && wishSaid !== w.id) {
       wishSaid = w.id;
-      say(`${itemName(w)}、買えるよ！`, 4000);
+      say(inStock(w) ? `${itemName(w)}、買えるよ！` : `${itemName(w)}の分、たまったよ！入荷を待とう`, 4000);
     }
   }
-  // きょうのおすすめ（日替わり。ひとつは2割引）
-  function todaysPicks() {
-    const rnd = SHOP.seeded(dateKey());
-    const pool = SHOP.ITEMS.filter(i => i.price > 0 && !i.limited && (i.kind === 'fur' || !owns(i.id)));
-    const picks = [];
-    while (picks.length < 4 && pool.length) picks.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
-    return picks;
+  // 日替わりの品ぞろえ：各コーナー1日3点。順番に回るので、どの商品も数日おきに必ず並ぶ
+  const STOCK_SERIES = ['luxe', 'street', 'wa', 'china', 'classic'], PER_DAY = 3;
+  const dayIndex = (d = new Date()) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
+  const ROTATION = Object.fromEntries(STOCK_SERIES.map(k => {
+    const list = SHOP.ITEMS.filter(i => i.series === k && i.price > 0 && !i.limited), rnd = SHOP.seeded('heya-stock-' + k);
+    for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
+    return [k, list];
+  }));
+  const stockCache = new Map();
+  function stockOn(day) {
+    if (!stockCache.has(day)) {
+      const out = [];
+      for (const k of STOCK_SERIES) {
+        const list = ROTATION[k], n = list.length, start = (day * PER_DAY) % n;
+        for (let j = 0; j < Math.min(PER_DAY, n); j++) out.push(list[(start + j) % n]);
+      }
+      stockCache.set(day, out);
+    }
+    return stockCache.get(day);
   }
-  function saleId() { const p = todaysPicks(); return p[0] && p[0].id; }
+  const todaysStock = () => stockOn(dayIndex());
+  const todaysPicks = todaysStock;
+  const inStock = it => (it.limited ? limitedNow(it) : it.price > 0 && todaysStock().includes(it));
+  function nextStock(it) { // 次に入荷するまでの日数（売っていない物は null）
+    if (it.limited || !it.price) return null;
+    for (let d = 0; d < 60; d++) if (stockOn(dayIndex() + d).includes(it)) return d;
+    return null;
+  }
+  function nextStockText(it) {
+    const d = nextStock(it);
+    if (d === null) return '';
+    if (d === 0) return 'きょう入荷';
+    const t = new Date(); t.setDate(t.getDate() + d);
+    return `入荷まで あと${d}日（${t.getMonth() + 1}/${t.getDate()}）`;
+  }
+  const wishInStock = () => S.wish.map(id => SHOP.BY_ID[id]).filter(Boolean).filter(inStock);
+  function saleId() { const st = todaysStock(), rnd = SHOP.seeded('sale-' + dateKey()); return st.length ? st[Math.floor(rnd() * st.length)].id : null; }
   const priceOf = it => (it.id === saleId() ? Math.round(it.price * 0.8 / 10) * 10 : it.price);
   function limitedNow(it) {
     if (!it.limited) return true;
@@ -688,7 +716,7 @@
     if (!parts2.length && open) parts2.push(`やること ${open}件`);
     if (S.city && S.wx && !parts2.length) parts2.push(`${S.city.name} ${S.wx.temp}℃`);
     const w = wishItem();
-    if (w && !parts2.length) { const need = priceOf(w) - S.coins; parts2.push(need > 0 ? `♥ ${itemName(w)}まで あと${fmtCoin(need)}` : `♥ ${itemName(w)}が買えます`); }
+    if (w && !parts2.length) { const need = priceOf(w) - S.coins; parts2.push(need > 0 ? `♥ ${itemName(w)}まで あと${fmtCoin(need)}` : inStock(w) ? `♥ ${itemName(w)}が買えます（きょう入荷）` : `♥ ${itemName(w)}の分たまりました`); }
     $('status').textContent = parts2.join(' ・ ');
     $('title').textContent = S.room === 'shop' ? 'おみせ' : (S.name ? `${S.name}の` : '') + (S.room === 'kitchen' ? 'キッチン' : 'へや');
     const big = $('timerBig'); if (big) big.textContent = fmt(tleft);
@@ -905,7 +933,7 @@
     }
     const h = now.getHours();
     if (h !== lastHour) { lastHour = h; if (HOUR_LINES[h]) say(HOUR_LINES[h], 5000); }
-    if (dateKey(now) !== lastDay) { lastDay = dateKey(now); buildShop(); const ev = (S.events[lastDay] || '').trim(); if (ev) say(`今日は「${ev.slice(0, 12)}」だね`, 5000); }
+    if (dateKey(now) !== lastDay) { lastDay = dateKey(now); buildShop(); { const ws = wishInStock(); if (ws.length) toast(`ほしいもの「${itemName(ws[0])}」がきょう入荷しています`); } const ev = (S.events[lastDay] || '').trim(); if (ev) say(`今日は「${ev.slice(0, 12)}」だね`, 5000); }
     if (S.city && ms - lastWxFetch > 30 * 60000) { lastWxFetch = ms; fetchWeather(); }
     if (S.bgm.kind && Math.random() < 0.35) {
       const radio = roomItems().find(i => i.type === 'radio');
@@ -1349,12 +1377,12 @@
       P.front('lectern', { d: 0.45 });
       P.front('plant', { d: 0.55 });
     });
-    corner('pick', 'きょうの入荷', '毎日0時に入れかわり。ひとつは2割引', 'flower', 'wood', P => todaysPicks().forEach(P.product));
     const lim = SHOP.ITEMS.filter(i => i.limited && limitedNow(i));
     if (lim.length) corner('season', `期間限定・${lim[0].limited.label}`, `あと${daysLeft(lim[0])}日でおしまい`, 'wood', 'dark', P => lim.forEach(P.product));
     const deco = { luxe: ['luxe', 'herring'], street: ['brick', 'concrete'], wa: ['wa', 'tatami'], china: ['china', 'dark'] };
-    for (const k of Object.keys(deco)) corner(k, SHOP.SERIES[k].name, SHOP.SERIES[k].desc, deco[k][0], deco[k][1], P => SHOP.ITEMS.filter(i => i.series === k && i.price > 0).forEach(P.product));
-    corner('classic', '定番・試着室', '人気の定番品。マネキンやウィッグを押すと試着できます', 'mint', 'tile', P => { P.back('fitting'); SHOP.ITEMS.filter(i => i.series === 'classic').forEach(P.product); });
+    const today3 = k => todaysStock().filter(i => i.series === k);
+    for (const k of Object.keys(deco)) corner(k, SHOP.SERIES[k].name, `${SHOP.SERIES[k].desc}。きょうの3点`, deco[k][0], deco[k][1], P => today3(k).forEach(P.product));
+    corner('classic', '定番・試着室', 'きょうの3点。マネキンやウィッグを押すと試着できます', 'mint', 'tile', P => { P.back('fitting'); today3('classic').forEach(P.product); });
     corner('gacha', 'カプセルトイ', `1回${SHOP.GACHA_PRICE}コイン。ここでしか手に入らない小物`, 'stars', 'carpet', P => { P.back('gachaM', { d: 0.08 }); P.back('gachaM', { d: 0.08 }); P.back('gachaM', { d: 0.08 }); P.front('plant'); });
     ROOMS.shop.w = x;
     shopRoom = { items, segs, day: dateKey() };
@@ -1386,8 +1414,9 @@
   const lookLine = p => (S.wish.includes(p.id) ? 'これ、ほしいなぁ…' : ownedCount(p.id) && p.kind !== 'fur' ? 'これ持ってる！' : pick(['かわいい…', 'いいなぁ', 'おしゃれ〜', 'これ素敵', `${itemName(p)}だって`]));
   function goShop() { if (S.room !== 'shop') goRoom('shop'); else openShop(); }
   function catGreeting() {
-    const w = wishItem();
-    if (w && S.coins >= priceOf(w)) return `「${itemName(w)}」、買えるにゃ！`;
+    const w = wishItem(), ws = wishInStock();
+    if (w && inStock(w) && S.coins >= priceOf(w)) return `「${itemName(w)}」、買えるにゃ！`;
+    if (ws.length) return `ほしかった「${itemName(ws[0])}」、きょう入荷してるにゃ！`;
     const sale = SHOP.BY_ID[saleId()];
     const lim = SHOP.ITEMS.find(i => i.limited && limitedNow(i));
     return pick([
@@ -1417,7 +1446,7 @@
     </button>`;
   }
   const grid = list => list.length ? `<div class="cards">${list.map(card).join('')}</div>` : '<p class="empty">ありません</p>';
-  const buyable = i => i.price > 0 && limitedNow(i);
+  const buyable = i => i.price > 0 && inStock(i);
 
   function shopBody() {
     const tab = S.ui.shopTab;
@@ -1426,7 +1455,7 @@
       const lim = SHOP.ITEMS.filter(i => i.limited && limitedNow(i));
       const w = wishItem();
       return `${w ? wishRow(w, true) : ''}
-        <div class="sec">きょうの入荷 <small>毎日0時に入れかわります</small></div>${grid(todaysPicks())}
+        <div class="sec">きょうの品ぞろえ <small>毎日0時に入れかわります。ひとつは2割引</small></div>${grid(todaysStock())}
         ${lim.length ? `<div class="sec">期間限定・${lim[0].limited.label} <small>あと${daysLeft(lim[0])}日</small></div>${grid(lim)}` : ''}`;
     }
     if (tab === 'fur') {
@@ -1458,7 +1487,8 @@
       <button class="pic" data-id="${it.id}"><img src="${picURL(it)}" alt=""></button>
       <div class="wr-main"><div class="wr-top"><b>${esc(itemName(it))}</b>${goal ? '<em class="b wish">目標</em>' : ''}</div>
         <div class="meter"><i style="width:${pct}%"></i></div>
-        <small>${S.coins >= p ? '買えます！' : `あと ${fmtCoin(p - S.coins)} コイン`}（${fmtCoin(p)}）</small></div>
+        <small>${S.coins >= p ? 'コインたまってます！' : `あと ${fmtCoin(p - S.coins)} コイン`}（${fmtCoin(p)}）</small>
+        <small class="${inStock(it) ? 'instock' : ''}">${inStock(it) ? 'きょう入荷しています' : nextStockText(it)}</small></div>
       <div class="wr-btns">${goal ? '' : `<button class="btn small" data-wishtop="${it.id}">目標に</button>`}<button class="btn small" data-unwish="${it.id}">はずす</button></div>
     </div>`;
   }
@@ -1480,6 +1510,8 @@
     let actions = '';
     if (!it.price) actions = `<p class="hint">ガチャで出ます。${own ? `いま${own}個持っています。` : ''}</p>${btn('shopTab', 'ガチャへ', 'small primary', 'gacha')}`;
     else if (done) actions = `<p class="hint">持っています。</p>${fashion ? btn('wear', '着る', 'small primary', it.id) : btn('wear', 'この部屋で使う', 'small primary', it.id)}`;
+    else if (!inStock(it)) actions = `<p class="hint">${it.limited ? '期間限定の品です。いまは売っていません。' : `きょうは売っていません。${nextStockText(it)}`}</p>
+      <div class="row">${btn('wish', wished ? '♥ ほしい' : '♡ ほしい', 'small' + (wished ? ' on' : ''), it.id)}</div>`;
     else {
       const w = wishItem();
       const warn = buyConfirm && w && w.id !== it.id;
@@ -1620,7 +1652,7 @@
   }
   function buy(it) {
     const price = priceOf(it);
-    if (S.coins < price) return;
+    if (S.coins < price || !inStock(it)) return;
     const w = wishItem();
     if (w && w.id !== it.id && !buyConfirm) { buyConfirm = true; return rerender(); }
     buyConfirm = false;
@@ -1772,7 +1804,8 @@
   function wishLine() {
     const w = wishItem(); if (!w) return '';
     const need = priceOf(w) - S.coins;
-    return need > 0 ? `${itemName(w)}まで、あと${fmtCoin(need)}コイン！` : `${itemName(w)}、買えるよ！`;
+    if (need > 0) return `${itemName(w)}まで、あと${fmtCoin(need)}コイン！`;
+    return inStock(w) ? `${itemName(w)}、きょう買えるよ！` : `${itemName(w)}の入荷、まだかな`;
   }
 
   /* ---------- 部屋の行き来 ---------- */
@@ -2041,7 +2074,7 @@
   for (const [rk, r] of Object.entries(S.rooms)) for (const k of ['wall', 'floor']) if (!owns(`${k}:${r[k]}`)) r[k] = DEFAULT.rooms[rk][k];
   updateCoins();
 
-  if (location.hash === '#debug') window.__heya = { S, openPanel, goRoom, startAct, earnCoins, setEditing, ch, roomItems, pomoToggle, openShop, deliver, renderShop, openBox, openItemPanel, goRoom };
+  if (location.hash === '#debug') window.__heya = { S, openPanel, goRoom, startAct, earnCoins, setEditing, ch, roomItems, pomoToggle, openShop, deliver, renderShop, openBox, openItemPanel, goRoom, todaysStock, stockOn, nextStock };
 
   attachHost(window);
   tick();
@@ -2063,6 +2096,8 @@
       const bonus = earnCoins(20 + Math.min(S.login.streak - 1, 10) * 5, null, true);
       msgs.push(`ログインボーナス ${bonus}コイン（${S.login.streak}日連続）`);
     }
+    const ws = wishInStock();
+    if (ws.length) msgs.push(`ほしいもの「${itemName(ws[0])}」がきょう入荷しています`);
     S.lastSeen = Date.now(); save();
     if (msgs.length) setTimeout(() => toast(msgs.join(' ／ '), null, 9000), 900);
   }
