@@ -324,6 +324,33 @@
     return c;
   }
   // ベッドで寝ている顔
+  // お店のマネキン（服を着せて飾る）
+  function mannequinSprite(outfit) {
+    const key = 'mq|' + outfit;
+    if (girlCache.has(key)) return girlCache.get(key);
+    const head = ['.........nnnn.........', '........nnnnnn........', '........nnnnnn........', '........nnnnnn........', '.........nnnn.........', '..........nn..........'];
+    const body = applyOutfit(BODY, (OUTFITS[outfit] || {}).style, false).map(r => r.replace(/[hHk]/g, '.').replace(/s/g, 'n'));
+    const legs = LEGS.stand.map(r => r.replace(/[slb]/g, 'n'));
+    const rows = [...head, ...body, ...legs, '..........pp..........', '.......pppppppp.......'];
+    const pal = { ...girlPal({ hair: 'long', hairColor: 'brown', outfit }), n: '#f0dcc8', p: '#5b5068' };
+    const c = sprite(GIRL_W, rows.length, P => P.map(0, 0, rows, pal));
+    girlCache.set(key, c);
+    return c;
+  }
+  // お店のウィッグ（髪型を見せる）
+  function wigSprite(style, color = 'brown') {
+    const key = 'wig|' + style + color;
+    if (girlCache.has(key)) return girlCache.get(key);
+    let rows = applyHair([...HEAD, ...EYES_SHUT, ...FACE_LOW, ...BODY.slice(0, 3)], style, false);
+    rows = rows.map(r => r.replace(/[sSceEWmk]/g, 'n').replace(/[dDw]/g, '.').replace(/r/g, style === 'long' ? '.' : 'r'));
+    rows = rows.map((r, i) => (i >= 18 ? r.replace(/n/g, '.') : r));
+    rows.push('.........pppp.........', '.......pppppppp.......');
+    rows[18] = set(set(rows[18], 10, 'p'), 11, 'p'); rows[19] = set(set(rows[19], 10, 'p'), 11, 'p'); rows[20] = set(set(rows[20], 10, 'p'), 11, 'p');
+    const pal = { ...girlPal({ hair: style, hairColor: color, outfit: 'mizuiro' }), n: '#f0dcc8', p: '#5b5068' };
+    const c = sprite(GIRL_W, rows.length, P => P.map(0, 0, rows, pal));
+    girlCache.set(key, c);
+    return c;
+  }
   const SLEEP_HEAD = [
     '..hhhhhhhh..',
     '.hhhhHHhhhh.',
@@ -759,8 +786,9 @@
     const t = TYPES[type];
     const key = type + '|' + (t.key ? t.key(st) : '');
     let c = cache.get(key);
+    if (!c && t.custom) return t.custom(st);
     if (!c) {
-      c = sprite(t.w, t.h, P => t.draw(P, st));
+      c = sprite(t.w, t.h, (P, g) => t.draw(P, st, g));
       if (cache.size > 400) cache.clear();
       cache.set(key, c);
     }
@@ -776,7 +804,7 @@
   };
 
   window.HeyaArt = {
-    OUTLINE, drawOutside, shade, FONT,
+    OUTLINE, drawOutside, shade, FONT, mannequinSprite, wigSprite,
     TYPES, WALLS, FLOORS, HAIR_COLORS, OUTFITS, HAIR_STYLES, PARTICLES, C, BACK,
     GIRL_W, GIRL_H, girlSprite, thingSprite, wallTile, painter, sprite, canvas, textWidth,
   };

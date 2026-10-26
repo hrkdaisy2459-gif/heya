@@ -423,3 +423,15 @@ canvas.room { position: absolute; left: 0; top: 0; display: block; image-renderi
 .catalog .item.toshop { border-style: dashed; }
 @media (prefers-reduced-motion: reduce) { .capsule-btn, .rv, .floatcoin.on { animation: none; } }
 .toast { cursor: pointer; }
+
+/* ---- 歩けるおみせ ---- */
+.corner {
+  position: absolute; left: 8px; top: 6px; z-index: 320; display: flex; flex-direction: column; max-width: 60%;
+  padding: 2px 8px; background: rgba(58, 36, 51, .78); color: #fff; font-size: 11px; pointer-events: none; border: 2px solid #3a2433;
+}
+.corner small { font-size: 9px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bubble.cat { background: #fff6e0; }
+.bubble.cat::after { background: #fff6e0; }
+.panel .detail .d-main { flex-direction: column; align-items: stretch; }
+.panel .detail .d-pic { width: 100%; height: 90px; }
+.panel .detail .back { display: none; }

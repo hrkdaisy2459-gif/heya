@@ -8,6 +8,8 @@
   const LETTERS = {
     C: ['111', '100', '100', '100', '111'], H: ['101', '101', '111', '101', '101'],
     I: ['111', '010', '010', '010', '111'], L: ['100', '100', '100', '100', '111'],
+    N: ['101', '111', '111', '111', '101'], E: ['111', '100', '111', '100', '111'], W: ['101', '101', '111', '111', '101'],
+    G: ['111', '100', '101', '101', '111'], A: ['010', '101', '111', '101', '101'], S: ['111', '100', '111', '001', '111'],
   };
   function letters(P, x, y, str, col, scale) {
     for (const ch of str) {
@@ -361,6 +363,121 @@
   Object.assign(A.FLOORS, {
     herring: { name: 'ヘリンボーン', kind: 'herring', bw: 8, a: '#e8c9a0', b: '#d6b385', seam: '#c49a6a' },
     concrete: { name: 'コンクリート', kind: 'plain', bw: 16, a: '#9aa0a8', b: '#868c95', seam: '#7a808a' },
+  });
+
+  /* ---------- お店の内装 ---------- */
+  const SHOP_TYPES = {
+    shopWindow: {
+      name: 'ショーウィンドウ', wall: true, w: 64, h: 46, y: 72, key: st => st.sky.k,
+      draw(P, st) {
+        P.r(0, 0, 64, 44, '#3f6f5a').r(3, 3, 58, 37, st.sky.sky);
+        if (st.sky.star) [[8, 7], [20, 11], [44, 6], [55, 12]].forEach(([x, y]) => P.p(x, y, '#fff8d0'));
+        [[3, 18, 14, '#c9b8d8'], [17, 12, 12, '#b8c8e0'], [29, 20, 10, '#e0c4b8'], [39, 10, 13, '#c4d8c8'], [52, 16, 9, '#d8c0d0']].forEach(([x, top, w, c]) => {
+          P.r(x, top, w, 40 - top, st.sky.star ? A.shade(c, 0.55) : c);
+          for (let yy = top + 3; yy < 36; yy += 5) for (let xx = x + 2; xx < x + w - 2; xx += 4) P.r(xx, yy, 2, 2, st.sky.star ? '#ffd166' : '#ffffff');
+        });
+        P.r(3, 36, 58, 4, '#9aa0a8').r(47, 22, 1, 14, '#3a3036').ell(47, 21, 2, 1, st.sky.star ? '#ffe08a' : '#c9d3df');
+        for (let x = 3; x < 61; x += 6) P.r(x, 3, 3, 4, '#ff9fb6').r(x + 3, 3, 3, 4, '#ffffff');
+        P.r(31, 3, 2, 37, '#3f6f5a').r(3, 21, 58, 1, '#3f6f5a');
+        P.r(-1, 42, 66, 4, '#d39566').r(-1, 42, 66, 1, '#f0b07a');
+        P.ell(10, 40, 3, 2, C.leaf).r(8, 41, 4, 1, C.pot).ell(54, 40, 3, 2, '#ff9fb6').r(52, 41, 4, 1, C.pot);
+      },
+    },
+    counter: {
+      name: 'レジカウンター', w: 54, h: 30,
+      draw(P) {
+        P.r(4, 2, 16, 8, '#e8e0d0').r(6, 3, 8, 3, '#8fd68a').r(15, 3, 3, 2, '#e2475e').r(5, 7, 14, 1, '#c9c0b0').r(2, 9, 20, 2, '#d0c4b0');
+        P.ell(30, 8, 2, 1, GOLD).p(30, 6, GOLD).r(40, 3, 4, 6, '#9fd8f5').p(41, 1, '#ff6f91').p(43, 2, '#ffd166');
+        P.r(0, 10, 54, 3, '#d39566').r(0, 10, 54, 1, '#f0b07a').r(1, 13, 52, 17, '#8e5638');
+        P.r(4, 16, 21, 11, '#a8703f').r(29, 16, 21, 11, '#a8703f').r(4, 16, 21, 1, '#c48a52').r(29, 16, 21, 1, '#c48a52');
+        P.map(23, 19, ['x.x', 'xxx', '.x.'], { x: '#ff9fb6' });
+      },
+    },
+    lectern: {
+      name: '図鑑のスタンド', w: 18, h: 28,
+      draw(P) {
+        P.r(1, 4, 16, 2, '#e2475e').r(2, 1, 6, 4, '#ffffff').r(10, 1, 6, 4, '#ffffff').r(8, 2, 2, 3, '#d9cfc4').r(3, 2, 4, 1, '#c9c0d0').r(11, 2, 4, 1, '#c9c0d0');
+        P.r(2, 6, 14, 3, '#8e5638').r(7, 9, 4, 16, '#8e5638').r(3, 25, 12, 3, '#6d3f2a');
+      },
+    },
+    pedestal: {
+      name: '展示台', w: 26, h: 9,
+      draw(P) { P.r(1, 2, 24, 7, '#f4f1f4').ell(13, 2, 12, 2, '#ffffff').r(1, 8, 24, 1, '#d9d0dc').r(2, 4, 22, 1, '#e8c86a'); },
+    },
+    pendant: {
+      name: 'ペンダントライト', wall: true, w: 12, h: 24, y: 24, light: () => true,
+      draw(P) { P.r(5, 0, 1, 14, '#3a3036').r(3, 13, 6, 2, GOLD).r(1, 15, 10, 4, GOLD).r(1, 15, 10, 1, GOLDL).r(4, 19, 4, 2, '#fff6c9'); },
+    },
+    fitting: {
+      name: '試着室', w: 34, h: 58,
+      draw(P) {
+        P.r(0, 0, 34, 4, '#8e5638').r(0, 4, 2, 54, '#8e5638').r(32, 4, 2, 54, '#8e5638');
+        P.r(2, 4, 30, 52, '#fff6f9').ell(22, 26, 6, 12, GOLD).ell(22, 26, 4, 10, '#cfe6f2').line(20, 20, 23, 16, '#ffffff');
+        for (let x = 2; x < 17; x++) P.r(x, 4, 1, 52, x % 3 === 0 ? '#e88aa6' : '#f2a7bd');
+        P.r(2, 4, 15, 2, '#e88aa6').r(14, 30, 4, 2, GOLD);
+        P.map(24, 46, ['x.x', 'xxx', '.x.'], { x: '#ff6f91' });
+        P.r(0, 56, 34, 2, '#6d3f2a');
+      },
+    },
+    hangSign: {
+      name: '看板', wall: true, w: 36, h: 18, y: 20, key: st => st.ref,
+      draw(P, st) {
+        const col = { pick: '#ff6f91', luxe: '#f2a7bd', street: '#3a3036', wa: '#5b8a6a', china: '#c0392b', classic: '#7ec4e8', gacha: '#c9b8f0', season: '#ff9f43', entrance: '#3f6f5a' }[st.ref] || '#ff6f91';
+        P.line(5, 0, 7, 5, '#5b5068').line(30, 0, 28, 5, '#5b5068');
+        P.r(1, 5, 34, 13, col).r(2, 6, 32, 1, 'rgba(255,255,255,.35)').r(1, 17, 34, 1, 'rgba(0,0,0,.2)');
+        const ink = st.ref === 'luxe' || st.ref === 'classic' || st.ref === 'gacha' ? '#3a2433' : '#ffffff';
+        if (st.ref === 'pick') letters(P, 12, 9, 'NEW', '#ffffff', 1);
+        else if (st.ref === 'gacha') letters(P, 9, 9, 'GACHA', '#3a2433', 1);
+        else if (st.ref === 'season') letters(P, 11, 9, 'SALE', '#ffffff', 1);
+        else if (st.ref === 'luxe') P.map(14, 8, ['.xx.xx.', 'xxxxxxx', '.xxxxx.', '..xxx..', '...x...'], { x: GOLD });
+        else if (st.ref === 'street') P.map(15, 8, ['..xx', '.xx.', 'xxxx', '.xx.', 'xx..'], { x: '#ff5fa2' });
+        else if (st.ref === 'wa') P.ell(18, 11, 3, 3, '#e2475e');
+        else if (st.ref === 'china') P.map(14, 8, ['xxxxxxx', 'x.....x', 'x.xxx.x', 'x.....x', 'xxxxxxx'], { x: '#ffd166' });
+        else if (st.ref === 'classic') P.map(15, 8, ['..x..', '.xxx.', 'xxxxx', '.x.x.'], { x: '#ffd166' });
+        else P.map(13, 8, ['x..x.xxx', 'x..x.x..', 'xxxx.xx.', 'x..x.x..', 'x..x.xxx'], { x: ink });
+      },
+    },
+    dye: {
+      name: 'ヘアカラー', w: 8, h: 14, key: st => st.ref,
+      draw(P, st) {
+        const c = A.HAIR_COLORS[st.ref] || A.HAIR_COLORS.brown;
+        P.r(2, 0, 4, 3, '#3a3036').r(1, 3, 6, 11, c.h).r(2, 4, 1, 8, c.H).r(2, 7, 4, 4, '#ffffff').r(3, 8, 2, 2, c.h);
+      },
+    },
+    sampleWall: {
+      name: '壁紙サンプル', wall: true, w: 24, h: 28, y: 58, key: st => st.ref,
+      draw(P, st, g) {
+        P.r(0, 0, 24, 28, '#d39566');
+        g.imageSmoothingEnabled = false;
+        g.drawImage(A.wallTile(st.ref), 0, 20, 20, 24, 2, 2, 20, 24);
+        P.r(0, 0, 24, 1, '#f0b07a');
+      },
+    },
+    sampleFloor: {
+      name: '床サンプル', w: 30, h: 8, key: st => st.ref,
+      draw(P, st) {
+        const F = A.FLOORS[st.ref] || A.FLOORS.wood;
+        for (let y = 0; y < 8; y++) for (let x = 0; x < 30 - (7 - y); x++) {
+          const xx = x + (7 - y);
+          const col = F.kind === 'herring' ? ((Math.floor(xx / 4) + Math.floor(y / 2)) % 2 ? F.a : F.b) : F.kind === 'checker' ? ((Math.floor(xx / 6) + Math.floor(y / 4)) % 2 ? F.a : F.b) : F.kind === 'plain' ? ((xx * 7 + y * 3) % 11 ? F.a : F.b) : (Math.floor(xx / 6) % 2 ? F.a : F.b);
+          P.p(xx, y, col);
+        }
+      },
+    },
+    mannequin: { name: 'マネキン', w: 22, h: 20, custom: st => A.mannequinSprite(st.ref) },
+    wig: { name: 'ウィッグ', w: 22, h: 23, custom: st => A.wigSprite(st.ref) },
+    gachaM: { name: 'ガチャマシン', w: 26, h: 40, light: () => true, custom: () => A.GACHA[0] },
+    shopcat: { name: '店員さん', w: 24, h: 26, custom: st => A.SHOP_CAT[st.blink ? 1 : 0] },
+  };
+  for (const t of Object.values(SHOP_TYPES)) t.deco = true; // お店専用（模様替えには出さない）
+  Object.assign(A.TYPES, SHOP_TYPES);
+  Object.assign(A.WALLS, {
+    shop: { name: 'おみせの壁', tw: 20, draw(P) {
+      P.r(0, 0, 20, A.BACK, '#fff4e6').r(0, 0, 20, 4, '#3f6f5a').r(0, 4, 20, 1, GOLD);
+      P.r(9, 10, 2, 2, '#f0dcc0').r(0, 46, 20, 2, GOLD).r(0, 48, 20, A.BACK - 52, '#3f6f5a');
+      P.r(3, 52, 14, A.BACK - 60, '#4f8a72').r(3, 52, 14, 1, '#5f9f86');
+      P.r(0, A.BACK - 4, 20, 4, '#2f5444');
+    } },
   });
 
   /* ---------- お店の絵 ---------- */
