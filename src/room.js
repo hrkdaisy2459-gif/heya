@@ -5,7 +5,7 @@
 (() => {
   'use strict';
 
-  const A = window.HeyaArt, SND = window.HeyaSound;
+  const A = window.HeyaArt, SND = window.HeyaSound, SHOP = window.HeyaShop;
   const TYPES = A.TYPES;
   const H = 130, BACK = A.BACK, VY = -90, FMAX = 1.25;
   const persp = d => 1 + d * (FMAX - 1);
@@ -20,7 +20,7 @@
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
   const ROOMS = { main: { name: 'へや', w: 720 }, kitchen: { name: 'キッチン', w: 420 } };
-  const SIDE = { pink: '#efcdd7', mint: '#cdeadf', flower: '#f0e2c8', wood: '#c4925f', wa: '#e2d1ad', stars: '#1f2448' };
+  const SIDE = { pink: '#efcdd7', mint: '#cdeadf', flower: '#f0e2c8', wood: '#c4925f', wa: '#e2d1ad', stars: '#1f2448', luxe: '#f3e6e2', brick: '#9e5340', china: '#a51c30' };
 
   /* ---------- 保存 ---------- */
   const KEY = 'heya:v3';
@@ -79,10 +79,16 @@
     city: null,
     wx: null,
     stats: { stars: 0, todos: 0, pomos: 0, focusMin: 0, days: {} },
-    ui: { timerTab: 'timer', catTab: 'items' },
+    ui: { timerTab: 'timer', catTab: 'items', shopTab: 'pick', shopSeries: 'all' },
+    coins: 300, coinTotal: 0, coinFrac: 0, lastSeen: 0,
+    login: { last: '', streak: 0 },
+    owned: {},        // 買った物 { 'fur:neon': 1, 'outfit:frill': 1, ... }（家具は持っている数）
+    wish: [],         // ほしいもの（先頭が目標）
+    love: 0,          // なかよし度
   };
   const read = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
   let S = read(KEY);
+  const hadCoins = !!(S && 'coins' in S), oldStars = (S && S.stats && S.stats.stars) || 0;
   if (!S) {
     // 前の版から、メモ・やること・アラーム・タイマーを引き継ぐ
     const old = read('heya:v2') || read('heya:v1');
@@ -95,8 +101,8 @@
     }
   }
   S = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), S);
-  for (const k of ['rooms', 'pomo', 'remind', 'bgm', 'look', 'stats', 'ui']) S[k] = Object.assign(JSON.parse(JSON.stringify(DEFAULT[k])), S[k] || {});
-  S.items = S.items.filter(i => TYPES[i.type] && ROOMS[i.room]);
+  for (const k of ['rooms', 'pomo', 'remind', 'bgm', 'look', 'stats', 'ui', 'login']) S[k] = Object.assign(JSON.parse(JSON.stringify(DEFAULT[k])), S[k] || {});
+  S.items = S.items.filter(i => (TYPES[i.type] || i.type === 'box') && ROOMS[i.room] && !i.trial);
   if (!ROOMS[S.room]) S.room = 'main';
   if (!S.memos.length) S.memos = [{ id: 1, text: '' }];
   let saveT = 0;
@@ -105,34 +111,98 @@
     saveT = setTimeout(() => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch { /* 保存できない環境でも動かす */ } }, 250);
   };
 
-  /* ---------- ごほうび ---------- */
-  const REWARDS = [
-    { at: 3, type: 'outfit', id: 'pink', label: 'ピンクワンピ' },
-    { at: 6, type: 'item', id: 'fishbowl', label: '金魚鉢' },
-    { at: 10, type: 'hair', id: 'twin', label: 'ツインテール' },
-    { at: 15, type: 'outfit', id: 'sailor', label: 'セーラー服' },
-    { at: 20, type: 'hairColor', id: 'pink', label: 'ピンクの髪' },
-    { at: 28, type: 'wall', id: 'stars', label: '星空の壁紙' },
-    { at: 36, type: 'outfit', id: 'maid', label: 'メイド服' },
-    { at: 45, type: 'hairColor', id: 'aqua', label: 'みずいろの髪' },
-    { at: 60, type: 'hairColor', id: 'silver', label: 'ぎんいろの髪' },
-  ];
-  const lockOf = (type, id) => REWARDS.find(r => r.type === type && r.id === id && S.stats.stars < r.at);
-  const today = () => (S.stats.days[dateKey()] ||= { focus: 0, todos: 0, pomos: 0 });
-  function earn(n) {
-    const before = S.stats.stars;
-    S.stats.stars += n;
-    const got = REWARDS.filter(r => before < r.at && S.stats.stars >= r.at);
-    if (got.length) {
-      const r = got[got.length - 1];
-      SND.chime('reward');
-      say(`${r.label}が届いたよ！`, 4500);
-      toast(`ごほうび：${r.label}が使えるようになりました`);
-      for (let i = 0; i < 6; i++) particle('spark', ch.x + rand(-12, 12), ch.d, floorY(ch.d) - rand(10, 34), 1.2);
-    }
-    save();
+  /* ---------- コインと持ち物 ---------- */
+  // 前の版の「★でもらえるごほうび」。★はコインに交換し、もらっていた物はそのまま持ち物にする
+  const OLD_REWARDS = [[3, 'outfit:pink'], [6, 'fur:fishbowl'], [10, 'hair:twin'], [15, 'outfit:sailor'], [20, 'hairColor:pink'], [28, 'wall:stars'], [36, 'outfit:maid'], [45, 'hairColor:aqua'], [60, 'hairColor:silver']];
+  let welcome = '';
+  if (!hadCoins) {
+    S.coins = 300 + oldStars * 30;
+    for (const [at, id] of OLD_REWARDS) if (oldStars >= at) S.owned[id] = Math.max(1, S.owned[id] || 0);
+    if (S.items.some(i => i.type === 'fishbowl')) S.owned['fur:fishbowl'] = Math.max(1, S.owned['fur:fishbowl'] || 0);
+    welcome = oldStars ? `お店がオープン！ ★${oldStars}を${oldStars * 30}コインに交換して、開店記念の300コインもどうぞ` : 'お店がオープン！ 開店記念に300コインをどうぞ';
   }
+  // ふつうに使える（買わなくていい）物
+  const isShopItem = id => !!SHOP.BY_ID[id];
+  const owns = id => !isShopItem(id) || (S.owned[id] || 0) > 0;
+  const ownedCount = id => S.owned[id] || 0;
+  const placedCount = type => S.items.filter(i => i.type === type).length;
+  const itemName = it => {
+    const T = { fur: TYPES, outfit: A.OUTFITS, hair: null, hairColor: A.HAIR_COLORS, wall: A.WALLS, floor: A.FLOORS }[it.kind];
+    if (it.kind === 'hair') return A.HAIR_STYLES[it.ref];
+    return T && T[it.ref] ? T[it.ref].name : it.ref;
+  };
+  const today = () => (S.stats.days[dateKey()] ||= { focus: 0, todos: 0, pomos: 0, coins: 0 });
   function addFocus(min) { S.stats.focusMin += min; today().focus += min; }
+  // シリーズをそろえると、もらえるコインが増える
+  function seriesProgress(key) {
+    const list = SHOP.ITEMS.filter(i => i.series === key);
+    return { have: list.filter(i => ownedCount(i.id) > 0).length, all: list.length };
+  }
+  const completeSeries = () => SHOP.BONUS_SERIES.filter(k => { const p = seriesProgress(k); return p.have === p.all; });
+  const mult = () => 1 + 0.1 * completeSeries().length;
+  // 置いてある家具の効果
+  function effects() {
+    const e = { passive: 0, focus: 0, bgm: new Set() };
+    for (const id of Object.keys(S.owned)) {
+      const it = SHOP.BY_ID[id];
+      if (!it || !S.owned[id]) continue;
+      if (it.bgm) e.bgm.add(it.bgm);
+    }
+    for (const i of S.items) {
+      const it = SHOP.BY_ID['fur:' + i.type];
+      if (!it) continue;
+      if (it.passive) e.passive += it.passive;
+      if (it.focus) e.focus += it.focus;
+    }
+    return e;
+  }
+  const passiveRate = () => (1 + effects().passive) * (S.pomo.phase === 'work' && S.pomo.running ? 2 : 1); // 1分あたり
+  const fmtCoin = n => Math.floor(n).toLocaleString('ja-JP');
+  function earnCoins(n, why, quiet) {
+    n = Math.max(1, Math.round(n * mult()));
+    S.coins += n; S.coinTotal += n; today().coins = (today().coins || 0) + n;
+    if (!quiet) {
+      SND.coin();
+      floatCoin(`+${n}`);
+      if (why) toast(`${why} +${n}コイン`);
+    }
+    checkWish();
+    updateCoins();
+    save();
+    return n;
+  }
+  function spend(n) { S.coins -= n; updateCoins(); save(); }
+  // ほしいもの
+  const wishItem = () => S.wish.map(id => SHOP.BY_ID[id]).find(Boolean);
+  let wishSaid = '';
+  function checkWish() {
+    const w = wishItem();
+    if (!w) return;
+    const price = priceOf(w);
+    if (S.coins >= price && wishSaid !== w.id) {
+      wishSaid = w.id;
+      say(`${itemName(w)}、買えるよ！`, 4000);
+    }
+  }
+  // きょうのおすすめ（日替わり。ひとつは2割引）
+  function todaysPicks() {
+    const rnd = SHOP.seeded(dateKey());
+    const pool = SHOP.ITEMS.filter(i => i.price > 0 && !i.limited && (i.kind === 'fur' || !owns(i.id)));
+    const picks = [];
+    while (picks.length < 4 && pool.length) picks.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+    return picks;
+  }
+  function saleId() { const p = todaysPicks(); return p[0] && p[0].id; }
+  const priceOf = it => (it.id === saleId() ? Math.round(it.price * 0.8 / 10) * 10 : it.price);
+  function limitedNow(it) {
+    if (!it.limited) return true;
+    const md = dateKey().slice(5);
+    return md >= it.limited.from && md <= it.limited.to;
+  }
+  function daysLeft(it) {
+    const y = new Date().getFullYear(), [m, d] = it.limited.to.split('-').map(Number);
+    return Math.max(0, Math.ceil((new Date(y, m - 1, d, 23, 59) - Date.now()) / 86400000));
+  }
 
   /* ---------- 画面の骨組み ---------- */
   const I = {
@@ -141,6 +211,7 @@
     gear: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" fill-rule="evenodd"><path d="M7 1h2v2h2V2h2v2h-1v2h2v2h-2v2h1v2h-2v-1h-2v2H9v1H7v-2H5v1H3v-2h1V8H2V6h2V4H3V2h2v1h2zM7 6v4h2V6z"/></svg>',
     pin: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d="M5 1h6v1h-1v4h1v1h1v1h1v1H9v6H7V9H3V8h1V7h1V6h1V2H5z"/></svg>',
     min: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d="M3 8h10v2H3z"/></svg>',
+    bag: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" fill-rule="evenodd"><path d="M5 2h6v1h1v2h2v10H2V5h2V3h1zM6 4v1h4V4zM5 7v1h1V7zm5 0v1h1V7z"/></svg>',
     close: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d="M2 2h3v3H2zM5 5h3v3H5zM8 8h3v3H8zM11 11h3v3h-3zM11 2h3v3h-3zM8 5h3v3H8zM5 8h3v3H5zM2 11h3v3H2z"/></svg>',
   };
   const app = document.getElementById('app');
@@ -148,7 +219,9 @@
     <div class="bar">
       <span class="title" id="title">へや</span>
       <span class="status" id="status"></span>
+      <button class="coins" id="coins" title="コイン（押すとお店へ）"><img id="coinIcon" alt=""><b id="coinNum">0</b><i id="wishBar" hidden><i></i></i></button>
       <div class="btns">
+        <button class="ibtn" id="btnShop" title="おみせ" aria-label="おみせ">${I.bag}</button>
         <button class="ibtn" id="btnPip" title="小窓にして、いつも手前に表示" aria-label="小窓にする" hidden>${I.pip}</button>
         <button class="ibtn" id="btnEdit" title="模様替え（家具・壁紙・床）" aria-label="模様替え">${I.edit}</button>
         <button class="ibtn" id="btnSet" title="せってい" aria-label="せってい">${I.gear}</button>
@@ -163,7 +236,10 @@
       <button class="nav l" id="navL" aria-label="左へ">◀</button>
       <button class="nav r" id="navR" aria-label="右へ">▶</button>
       <div class="ringbar" id="ringbar" hidden><span id="ringText"></span><button id="ringStop">止める</button></div>
-      <div class="toast" id="toast" hidden></div>
+      <div class="toast" id="toast" hidden><span id="toastText"></span><button class="btn small primary" id="toastBtn" hidden></button></div>
+      <div class="trialbar" id="trialbar" hidden></div>
+      <div class="shop" id="shop" hidden></div>
+      <div class="floatcoin" id="floatcoin"></div>
       <section class="panel" id="panel" hidden></section>
       <div class="catalog" id="catalog" hidden></div>
       <div class="fade" id="fade"></div>
@@ -208,6 +284,7 @@
       case 'sofa': return { x: it.x, d: it.d + 0.03 };
       case 'bed': return { x: it.x, d: it.d + 0.03 };
       case 'window': return { x: it.x, d: 0.12 };
+      case 'mirror': return { x: it.x, d: it.d + 0.08 };
       case 'pet': return { x: it.x + (ch.x < it.x ? -14 : 14), d: it.d };
       default: return { x: it.x, d: REST_D };
     }
@@ -226,10 +303,11 @@
     if (!it) return;
     ch.act = g.act; ch.actId = it.id;
     ch.actUntil = performance.now() + (g.ms ?? {
-      desk: rand(25000, 45000), sofa: rand(20000, 40000), bed: rand(20000, 30000), window: rand(6000, 9000), pet: 3500,
+      desk: rand(25000, 45000), sofa: rand(20000, 40000), bed: rand(20000, 30000), window: rand(6000, 9000), pet: 3500, mirror: 5000,
     }[g.act]);
     if (g.act === 'pet') { ch.face = it.x > ch.x ? 1 : -1; say(pick(['よしよし', 'ふわふわ〜', 'かわいいね'])); }
     if (g.act === 'window') say(windowLine());
+    if (g.act === 'mirror') say(pick(['おめかし♪', '前髪よし！', 'かわいくなった？']));
     if (g.act === 'bed') say(isNight() ? 'おやすみ…' : 'ちょっとお昼寝…');
     if (g.act === 'sofa' && tvOn()) say('なに見よっかな');
     dirty = true;
@@ -239,7 +317,11 @@
   function decide(now) {
     const items = roomItems();
     const get = t => items.find(i => i.type === t);
-    const desk = get('desk'), sofa = get('sofa'), bed = get('bed'), cat = get('cat'), win = get('window');
+    const desk = get('desk'), sofa = items.find(i => TYPES[i.type].act === 'sofa'), bed = get('bed'), cat = get('cat'), win = get('window');
+    const box = items.find(i => i.type === 'box' && !i.trial);
+    if (box && Math.random() < 0.5) { walkNear(box); say(pick(['なにか届いてるよ！', '荷物あけよ？'])); ch.nextWander = now + rand(9000, 14000); return; }
+    const mirror = items.find(i => i.type === 'dresser');
+    if (mirror && Math.random() < 0.08) return startAct('mirror', mirror);
     if (S.pomo.phase === 'work' && S.pomo.running && desk) return startAct('desk', desk, Infinity);
     if (isNight() && bed) return startAct('bed', bed, Infinity);
     if (tvOn() && sofa && Math.random() < 0.6) return startAct('sofa', sofa);
@@ -329,10 +411,13 @@
       case 'trophy': return { tier: S.stats.stars >= 60 ? 3 : S.stats.stars >= 30 ? 2 : S.stats.stars >= 10 ? 1 : 0 };
       case 'door': return { to: it.room === 'main' ? 'kitchen' : 'main' };
       case 'fishbowl': return { frame };
-      default: return {};
+      case 'box': return {};
+      default: return { frame, on: !!it.on, sky: skyNow() };
     }
   }
-  const animated = () => roomItems().some(i => i.type === 'fishbowl' || (i.type === 'tv' && i.on) || (i.type === 'window' && weatherNow() !== 'clear'));
+  const ANIM = new Set(['fishbowl', 'neon', 'lights', 'birdcage', 'penguin', 'lavaLamp', 'discoBall', 'xmasTree']);
+  const animated = () => !!opening || roomItems().some(i => ANIM.has(i.type) || (i.type === 'tv' && i.on) || (i.type === 'window' && weatherNow() !== 'clear'));
+  const isLight = (it, st) => (it.type === 'lamp' && it.on) || (TYPES[it.type].light && TYPES[it.type].light(st || { on: !!it.on }));
 
   /* ---------- 描画 ---------- */
   function measure() {
@@ -386,6 +471,7 @@
         let col = F.a;
         if (F.kind === 'boards') col = i % 2 ? F.a : F.b;
         else if (F.kind === 'checker') col = (i + band) % 2 ? F.a : F.b;
+        else if (F.kind === 'herring') col = (i + Math.floor((y - BACK) / 2)) % 2 ? F.a : F.b;
         g.fillStyle = col; g.fillRect(a, y, b - a, 1);
         if (F.kind !== 'plain') { g.fillStyle = F.seam; g.fillRect(a, y, 1, 1); }
         else if ((i * 7 + y * 3) % 13 === 0) { g.fillStyle = F.b; g.fillRect(Math.round((a + b) / 2), y, 1, 1); }
@@ -404,7 +490,7 @@
     if (ch.act !== 'bed') list.push({ char: true, z: 10 + ch.d * 100 + 0.5 });
     list.sort((a, b) => a.z - b.z);
     drawn = [];
-    let lamp = null, headPos = null;
+    let lights = [], headPos = null;
     for (const e of list) {
       let spr, X, Y;
       if (e.char) {
@@ -413,6 +499,8 @@
         if (!moving && ch.act === 'desk') pose = 'sitBack';
         else if (!moving && ch.act === 'sofa') pose = 'sitFront';
         else if (!moving && ch.act === 'window') pose = 'back';
+        if (!moving && ch.act === 'mirror') pose = 'back';
+        if (spinUntil > now) { pose = 'stand'; ch.face = Math.floor(now / 120) % 2 ? 1 : -1; }
         const shut = now < ch.blinkAt + 140 && pose !== 'back' && pose !== 'sitBack';
         spr = A.girlSprite(S.look, pose, shut, ch.face < 0 && pose !== 'sitBack' && pose !== 'back' && pose !== 'sitFront');
         X = sx(ch.x, ch.d); Y = floorY(ch.d);
@@ -423,15 +511,21 @@
         headPos = { x: X, y: Y - spr.height };
       } else {
         const it = e.it, t = TYPES[it.type];
-        spr = A.thingSprite(it.type, stateFor(it, frame));
+        const st = stateFor(it, frame);
+        spr = it.type === 'box' ? (opening && opening.id === it.id && now > opening.t + 500 ? A.BOX_OPEN : A.BOX) : A.thingSprite(it.type, st);
         const d = t.wall ? 0 : it.d;
         X = sx(it.x, d); Y = t.wall ? it.y : floorY(d);
-        if (it.type === 'lamp' && it.on && !lamp) lamp = { x: X, y: Y - 40 };
+        if (isLight(it, st) && lights.length < 8) lights.push({ x: X, y: Y - Math.min(t.h, 40) + 6, r: t.h > 30 ? 1 : 0.6 });
         if (it.type === 'bed' && ch.act === 'bed' && ch.actId === it.id) headPos = { x: X - 14, y: Y - 26 };
       }
       let x0 = Math.round(X - spr.width / 2), y0 = Math.round(Y - spr.height + 1);
       if (!e.char && ring && TYPES[e.it.type].tool === ring.kind) x0 += Math.floor(now / 70) % 2 ? 1 : -1; // 鳴っているとき揺れる
-      g.drawImage(spr, x0, y0);
+      if (!e.char && e.it.type === 'box') {
+        if (opening && opening.id === e.it.id && now < opening.t + 500) x0 += Math.floor(now / 50) % 2 ? 1 : -1; // 開けるときブルブル
+        else if (!opening && Math.floor(now / 600) % 5 === 0) y0 -= 1; // ときどきぴょこっと
+      }
+      if (!e.char && e.it.trial) { g.globalAlpha = 0.55 + 0.2 * Math.sin(now / 200); g.drawImage(spr, x0, y0); g.globalAlpha = 1; }
+      else g.drawImage(spr, x0, y0);
       drawn.push({ e, spr, x0, y0 });
     }
     // ハートや音符
@@ -444,15 +538,15 @@
 
     // 時間帯の暗さと、ランプのあかり
     const sky = skyNow();
-    if (lamp) { g.fillStyle = 'rgba(255,214,140,.10)'; dotCircle(g, lamp.x, lamp.y + 20, 40); }
     const dark = Math.max(sky.dark, weatherNow() === 'rain' && !sky.star ? 0.08 : 0);
+    if (dark > 0.05) for (const L of lights) { g.fillStyle = 'rgba(255,214,140,.10)'; dotCircle(g, L.x, L.y + 14, Math.round(40 * L.r)); }
     if (dark > 0) {
       sctx.clearRect(0, 0, vw, H);
       sctx.globalCompositeOperation = 'source-over';
       sctx.fillStyle = `rgba(28,18,64,${dark})`; sctx.fillRect(0, 0, vw, H);
-      if (lamp) {
+      if (lights.length) {
         sctx.globalCompositeOperation = 'destination-out';
-        [[60, 0.35], [46, 0.35], [32, 0.4]].forEach(([r, a]) => { sctx.fillStyle = `rgba(0,0,0,${a})`; dotCircle(sctx, lamp.x, lamp.y + 18, r); });
+        for (const L of lights) [[60, 0.3], [46, 0.3], [32, 0.35]].forEach(([r, a]) => { sctx.fillStyle = `rgba(0,0,0,${a})`; dotCircle(sctx, L.x, L.y + 12, Math.round(r * L.r)); });
         sctx.globalCompositeOperation = 'source-over';
       }
       g.drawImage(shadeCv, 0, 0);
@@ -461,7 +555,7 @@
     // 模様替え中の印（点線の枠と×）
     if (editing) {
       for (const dw of drawn) {
-        if (dw.e.char) continue;
+        if (dw.e.char || dw.e.it.type === 'box' || dw.e.it.trial) continue;
         const { x0, y0, spr } = dw;
         g.fillStyle = (dw === hover) ? '#ffffff' : 'rgba(255,255,255,.75)';
         for (let x = x0; x < x0 + spr.width; x += 2) { g.fillRect(x, y0 - 1, 1, 1); g.fillRect(x, y0 + spr.height, 1, 1); }
@@ -548,6 +642,8 @@
     const open = S.todos.filter(t => !t.done).length;
     if (!parts2.length && open) parts2.push(`やること ${open}件`);
     if (S.city && S.wx && !parts2.length) parts2.push(`${S.city.name} ${S.wx.temp}℃`);
+    const w = wishItem();
+    if (w && !parts2.length) { const need = priceOf(w) - S.coins; parts2.push(need > 0 ? `♥ ${itemName(w)}まで あと${fmtCoin(need)}` : `♥ ${itemName(w)}が買えます`); }
     $('status').textContent = parts2.join(' ・ ');
     $('title').textContent = (S.name ? `${S.name}の` : '') + (S.room === 'kitchen' ? 'キッチン' : 'へや');
     const big = $('timerBig'); if (big) big.textContent = fmt(tleft);
@@ -564,10 +660,28 @@
   function notify(text) {
     try { if ('Notification' in window && Notification.permission === 'granted') new Notification(S.name || 'へや', { body: text, silent: true }); } catch { /* 通知なし */ }
   }
-  let toastT = 0;
-  function toast(text) {
-    const t = $('toast'); t.textContent = text; t.hidden = false;
-    clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 4500);
+  let toastT = 0, toastFn = null;
+  function toast(text, action, ms = 4500) {
+    const t = $('toast'), b = $('toastBtn');
+    $('toastText').textContent = text; t.hidden = false;
+    toastFn = action ? action.fn : null;
+    b.hidden = !action; if (action) b.textContent = action.label;
+    clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; toastFn = null; }, action ? Math.max(ms, 15000) : ms);
+  }
+  // コインが増えたときに「+50」と浮かぶ
+  function floatCoin(text) {
+    const f = $('floatcoin'); f.textContent = text;
+    f.classList.remove('on'); void f.offsetWidth; f.classList.add('on');
+  }
+  function updateCoins() {
+    $('coinNum').textContent = fmtCoin(S.coins);
+    const w = wishItem(), bar = $('wishBar');
+    bar.hidden = !w;
+    if (w) {
+      const p = priceOf(w);
+      bar.firstChild.style.width = Math.min(100, S.coins / p * 100) + '%';
+      $('coins').title = `ほしいもの：${itemName(w)}（${fmtCoin(Math.min(S.coins, p))} / ${fmtCoin(p)}）`;
+    } else $('coins').title = 'コイン（押すとお店へ）';
   }
 
   /* ---------- 鳴らす・止める ---------- */
@@ -643,11 +757,11 @@
   function pomoEnd(credit) {
     const p = S.pomo;
     if (p.phase === 'work') {
-      if (credit) { p.count++; addFocus(p.work); S.stats.pomos++; today().pomos++; earn(2); }
+      if (credit) { p.count++; addFocus(p.work); S.stats.pomos++; today().pomos++; earnCoins(50 * (1 + effects().focus), '集中おつかれさま'); }
       else p.count++;
       const long = p.count % p.every === 0;
       SND.chime('break');
-      say(long ? '長めの休憩！ゆっくりしてね' : '休憩しよ！', 4000);
+      say((long ? '長めの休憩！' : '休憩しよ！') + (wishLine() ? ' ' + wishLine() : ''), 5000);
       notify(long ? `${p.long}分の長い休憩です` : `${p.brk}分休憩しましょう`);
       pomoBegin('break');
     } else {
@@ -690,6 +804,7 @@
       SND.chime('remind');
       say(REMINDS[k].line, 6000);
       notify(REMINDS[k].line);
+      toast(REMINDS[k].line, { label: 'できた！', fn: () => { earnCoins(5); say(pick(['えらい！', 'いいね！'])); } });
       for (let i = 0; i < 3; i++) particle(REMINDS[k].fx, ch.x + rand(-8, 8), ch.d, floorY(ch.d) - 34 - i * 4, 1.4);
       if (panelKind === 'remind') renderPanel();
     }
@@ -715,6 +830,13 @@
     if (ev) pool.push(`今日は「${ev.slice(0, 12)}」だね`);
     if (S.wx && S.city) pool.push(`${S.city.name}は${S.wx.temp}℃だって`);
     if (S.pomo.phase === 'work') pool.push('集中、集中…', 'いっしょにがんばろ');
+    const wl = wishLine(); if (wl) pool.push(wl, wl);
+    const lv = loveLevel();
+    if (lv >= 2) pool.push('いつもありがと');
+    if (lv >= 3) pool.push('いっしょにいると楽しいな');
+    if (lv >= 4) pool.push('だいすきだよ');
+    if (lv >= 5) pool.push('ずっといっしょにいようね');
+    if (S.items.some(i => i.type === 'box' && i.room === S.room)) pool.push('荷物、あけてみて！');
     return pick(pool);
   }
 
@@ -726,7 +848,7 @@
     if (S.timer.running && ms >= S.timer.endAt) {
       S.timer.running = false; S.timer.left = 0;
       const min = Math.round(S.timer.dur / 60000);
-      if (min >= 5) { addFocus(min); earn(1); }
+      if (min >= 5) { addFocus(min); earnCoins(min * 2, 'タイマー完了'); }
       save();
       startRing('timer', `タイマー終了（${fmt(S.timer.dur)}）`);
     }
@@ -748,15 +870,26 @@
       const bed = S.items.find(i => i.id === ch.actId);
       if (bed) particle('z', bed.x - 14, bed.d, floorY(bed.d) - 28, 1.8);
     }
+    // 放置でたまるコイン
+    S.coinFrac += passiveRate() * mult() / 120;
+    if (S.coinFrac >= 1) {
+      const n = Math.floor(S.coinFrac); S.coinFrac -= n;
+      S.coins += n; S.coinTotal += n; today().coins = (today().coins || 0) + n;
+      updateCoins(); checkWish(); save();
+      if (!shopEl.hidden) { const el = shopEl.querySelector('.shop-coins b'); if (el) el.textContent = fmtCoin(S.coins); }
+    }
+    if (ms - (S.lastSeen || 0) > 30000) { S.lastSeen = ms; save(); }
     blinkOn = !blinkOn;
     refreshDynamic();
   }
 
   /* ---------- パネル（道具） ---------- */
+  const BGM_UNLOCK = { lofi: 'fur:record', birds: 'fur:birdcage' };
   const TITLES = { alarm: 'アラーム', timer: 'タイマー', memo: 'メモ', todo: 'やること', bgm: 'ラジオ', calendar: 'カレンダー', remind: 'リマインダー', dress: 'きせかえ', stats: 'がんばり記録', settings: 'せってい' };
   const WEEK = '日月火水木金土';
   let cal = null, memoConfirm = false, exportCode = '', importMsg = '', cityResults = null;
   function openPanel(kind, onLeft) {
+    if (!shopEl.hidden) closeShop();
     panelKind = kind;
     panel.classList.toggle('left', !!onLeft);
     panel.hidden = false;
@@ -820,7 +953,8 @@
     },
     bgm() {
       return `
-        <div class="choices">${Object.entries(SND.BGM_LIST).map(([k, n]) => btn('bgm', n, S.bgm.kind === k ? 'on' : '', k)).join('')}</div>
+        <div class="choices">${Object.entries(SND.BGM_LIST).filter(([k]) => !BGM_UNLOCK[k] || effects().bgm.has(k)).map(([k, n]) => btn('bgm', n, S.bgm.kind === k ? 'on' : '', k)).join('')}</div>
+        ${Object.keys(BGM_UNLOCK).some(k => !effects().bgm.has(k)) ? '<p class="hint">お店の家具で、曲が増えます。</p>' : ''}
         <div class="row">${btn('bgm', 'とめる', S.bgm.kind ? '' : 'on', '')}</div>
         <div class="row">音量 <input type="range" min="0" max="1" step="0.05" data-f="bgmVol" value="${S.bgm.vol}" aria-label="音量"></div>
         <p class="hint">作業用の環境音です。最初は画面のどこかを押すと鳴りはじめます。</p>`;
@@ -854,36 +988,37 @@
     },
     dress() {
       const L = S.look;
-      const lockTag = (type, id) => { const r = lockOf(type, id); return r ? `<small>★${r.at}</small>` : ''; };
+      const opt = (kind, entries, render) => entries.filter(([k]) => owns(`${kind}:${k}`)).map(render).join('');
+      const more = SHOP.ITEMS.filter(i => ['outfit', 'hair', 'hairColor'].includes(i.kind) && !owns(i.id) && i.price && limitedNow(i)).length;
       return `
         <div class="dress-top"><canvas id="dressPrev" width="24" height="32"></canvas>
           <div class="dress-col">
             <div class="lbl">髪型</div>
-            <div class="choices">${Object.entries(A.HAIR_STYLES).map(([k, n]) => `<button class="btn ${L.hair === k ? 'on' : ''}" data-act="look" data-k="hair" data-v="${k}" ${lockOf('hair', k) ? 'disabled' : ''}>${n}${lockTag('hair', k)}</button>`).join('')}</div>
+            <div class="choices">${opt('hair', Object.entries(A.HAIR_STYLES), ([k, n]) => `<button class="btn ${L.hair === k ? 'on' : ''}" data-act="look" data-k="hair" data-v="${k}">${n}</button>`)}</div>
           </div>
         </div>
         <div class="lbl">髪の色</div>
-        <div class="swatches">${Object.entries(A.HAIR_COLORS).map(([k, c]) => `<button class="sw ${L.hairColor === k ? 'on' : ''}" style="--c:${c.h}" title="${c.name}" data-act="look" data-k="hairColor" data-v="${k}" ${lockOf('hairColor', k) ? 'disabled' : ''}>${lockTag('hairColor', k)}</button>`).join('')}</div>
+        <div class="swatches">${opt('hairColor', Object.entries(A.HAIR_COLORS), ([k, c]) => `<button class="sw ${L.hairColor === k ? 'on' : ''}" style="--c:${c.h}" title="${c.name}" data-act="look" data-k="hairColor" data-v="${k}"></button>`)}</div>
         <div class="lbl">服</div>
-        <div class="choices">${Object.entries(A.OUTFITS).map(([k, o]) => `<button class="btn ${L.outfit === k ? 'on' : ''}" data-act="look" data-k="outfit" data-v="${k}" ${lockOf('outfit', k) ? 'disabled' : ''}><i class="dot" style="--c:${o.d}"></i>${o.name}${lockTag('outfit', k)}</button>`).join('')}</div>
-        <p class="hint">★がたまると、新しい髪型や服が届きます。</p>`;
+        <div class="choices">${opt('outfit', Object.entries(A.OUTFITS), ([k, o]) => `<button class="btn ${L.outfit === k ? 'on' : ''}" data-act="look" data-k="outfit" data-v="${k}"><i class="dot" style="--c:${o.d}"></i>${o.name}</button>`)}</div>
+        ${more ? `<div class="row"><button class="btn small primary" data-act="toShop" data-v="fashion">お店で服を見る（${more}点）</button></div>` : ''}`;
     },
     stats() {
       const st = S.stats, t = today();
-      const next = REWARDS.find(r => st.stars < r.at);
       const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() - 6 + i); const k = dateKey(d); return { label: WEEK[d.getDay()], v: (st.days[k] || {}).focus || 0 }; });
       const max = Math.max(25, ...days.map(d => d.v));
+      const love = loveLevel();
       return `
-        <div class="stars">★ ${st.stars}</div>
-        ${next ? `<p class="hint center">あと★${next.at - st.stars}で「${next.label}」</p>` : '<p class="hint center">ごほうびを全部集めました！</p>'}
+        <div class="stars"><img class="coin-img" src="${coinURL()}" alt=""> ${fmtCoin(S.coins)}</div>
+        <p class="hint center">今日かせいだコイン ${fmtCoin(t.coins || 0)} ／ これまで ${fmtCoin(S.coinTotal)}</p>
+        <div class="kv"><span>放置でたまるコイン</span><b>毎分 ${passiveRate()}${S.pomo.phase === 'work' && S.pomo.running ? '（集中中2倍）' : ''}</b><span>シリーズボーナス</span><b>+${Math.round((mult() - 1) * 100)}%</b><span>ログイン</span><b>${S.login.streak}日連続</b><span>なかよし度</span><b>${'♥'.repeat(love)}${'♡'.repeat(5 - love)}</b></div>
         <div class="lbl">今日</div>
         <div class="kv"><span>集中した時間</span><b>${t.focus}分</b><span>完了したやること</span><b>${t.todos}件</b><span>ポモドーロ</span><b>${t.pomos}回</b></div>
         <div class="lbl">この7日の集中（分）</div>
         <div class="bars">${days.map(d => `<div class="bar-col"><i style="height:${Math.round(d.v / max * 100)}%"></i><span>${d.label}</span><small>${d.v}</small></div>`).join('')}</div>
         <div class="lbl">これまで</div>
         <div class="kv"><span>集中した時間</span><b>${Math.floor(st.focusMin / 60)}時間${st.focusMin % 60}分</b><span>完了したやること</span><b>${st.todos}件</b><span>ポモドーロ</span><b>${st.pomos}回</b></div>
-        <div class="lbl">ごほうび</div>
-        <ul class="rewards">${REWARDS.map(r => `<li class="${st.stars >= r.at ? 'got' : ''}"><span>★${r.at}</span>${r.label}</li>`).join('')}</ul>`;
+        <div class="row"><button class="btn small primary" data-act="toShop" data-v="book">図鑑を見る</button></div>`;
     },
     settings() {
       return `
@@ -956,6 +1091,7 @@
       case 'calNext': cal.m++; if (cal.m > 11) { cal.m = 0; cal.y++; } break;
       case 'calSel': cal.sel = v; break;
       case 'look': S.look[b.dataset.k] = v; say(pick(['にあう？', 'かわいい？', 'えへへ'])); break;
+      case 'toShop': closePanel(); return openShop(v);
       case 'cityOff': S.city = null; S.wx = null; break;
       case 'city': { const c = cityResults[+v]; S.city = { name: c.name, lat: c.lat, lon: c.lon }; cityResults = null; lastWxFetch = 0; fetchWeather(); break; }
       case 'export': exportCode = btoa(unescape(encodeURIComponent(JSON.stringify(S)))); break;
@@ -985,7 +1121,7 @@
     else if (f === 'alarmOn') { alarmOf(e.target).on = e.target.checked; if (e.target.checked) askNotify(); }
     else if (f === 'todoDone') {
       const t = itemOfLi(e.target); t.done = e.target.checked;
-      if (t.done && !t.got) { t.got = true; S.stats.todos++; today().todos++; earn(1); say(pick(['えらい！', 'すごい！', 'やったね！']), 1600); }
+      if (t.done && !t.got) { t.got = true; S.stats.todos++; today().todos++; earnCoins(10); say(pick(['えらい！', 'すごい！', 'やったね！']), 1600); }
     }
     else if (f === 'pomoWork' || f === 'pomoBrk' || f === 'pomoLong') S.pomo[{ pomoWork: 'work', pomoBrk: 'brk', pomoLong: 'long' }[f]] = clamp(+e.target.value || 1, 1, 120);
     else if (f === 'remindOn') { const r = S.remind[v]; r.on = e.target.checked; r.next = Date.now() + r.every * 60000; if (r.on) askNotify(); }
@@ -1036,7 +1172,7 @@
   const previewURL = {};
   function preview(type) {
     if (!previewURL[type]) {
-      const st = { h: 10, m: 10, todos: 3, memo: true, lcd: '25:00', mode: 'timer', sky: skyNow(), season: seasonNow(), weather: 'clear', on: true, frame: 1, month: 10, day: 1, tier: 1, to: 'kitchen' };
+      const st = { h: 10, m: 10, s: 0, todos: 3, memo: true, lcd: '25:00', mode: 'timer', sky: skyNow(), season: seasonNow(), weather: 'clear', on: true, frame: 1, month: 10, day: 1, tier: 1, to: 'kitchen' };
       previewURL[type] = A.thingSprite(type, st).toDataURL();
     }
     return previewURL[type];
@@ -1047,20 +1183,19 @@
     const tabs = `<div class="cat-tabs">${[['items', '家具'], ['wall', '壁紙'], ['floor', '床']].map(([k, n]) => `<button class="${tab === k ? 'on' : ''}" data-tab="${k}">${n}</button>`).join('')}</div>`;
     let list = '';
     if (tab === 'items') {
-      list = Object.entries(TYPES).map(([k, t]) => {
-        const lock = lockOf('item', k);
-        const used = (t.tool && t.tool !== 'door' && S.items.some(i => i.type === k)) || (k === 'door' && roomItems().some(i => i.type === 'door'));
-        const sub = lock ? `★${lock.at}` : used ? '配置済み' : t.tool ? TOOL_LABEL[t.tool] : '';
-        return `<button class="item" data-type="${k}" ${used || lock ? 'disabled' : ''} title="${t.name}"><span class="pic"><img src="${preview(k)}" alt=""></span><span>${t.name}</span>${sub ? `<small>${sub}</small>` : ''}</button>`;
+      list = Object.entries(TYPES).filter(([k]) => k !== 'box' && owns('fur:' + k)).map(([k, t]) => {
+        const shopItem = isShopItem('fur:' + k), left = shopItem ? ownedCount('fur:' + k) - placedCount(k) : Infinity;
+        const used = (t.tool && t.tool !== 'door' && S.items.some(i => i.type === k)) || (k === 'door' && roomItems().some(i => i.type === 'door')) || left <= 0;
+        const sub = left <= 0 && shopItem ? '置いてある' : used ? '配置済み' : shopItem ? `のこり${left}` : t.tool ? TOOL_LABEL[t.tool] : '';
+        return `<button class="item" data-type="${k}" ${used ? 'disabled' : ''} title="${t.name}"><span class="pic"><img src="${preview(k)}" alt=""></span><span>${t.name}</span>${sub ? `<small>${sub}</small>` : ''}</button>`;
       }).join('');
     } else if (tab === 'wall') {
-      list = Object.entries(A.WALLS).map(([k, w]) => {
-        const lock = lockOf('wall', k);
-        return `<button class="item ${R().wall === k ? 'cur' : ''}" data-wall="${k}" ${lock ? 'disabled' : ''}><span class="pic"><img class="tile" src="${A.wallTile(k).toDataURL()}" alt=""></span><span>${w.name}</span>${lock ? `<small>★${lock.at}</small>` : ''}</button>`;
-      }).join('');
+      list = Object.entries(A.WALLS).filter(([k]) => owns('wall:' + k)).map(([k, w]) =>
+        `<button class="item ${R().wall === k ? 'cur' : ''}" data-wall="${k}"><span class="pic"><img class="tile" src="${A.wallTile(k).toDataURL()}" alt=""></span><span>${w.name}</span></button>`).join('');
     } else {
-      list = Object.entries(A.FLOORS).map(([k, f]) => `<button class="item ${R().floor === k ? 'cur' : ''}" data-floor="${k}"><span class="pic"><i class="floor" style="--a:${f.a};--b:${f.b};--s:${f.seam}"></i></span><span>${f.name}</span></button>`).join('');
+      list = Object.entries(A.FLOORS).filter(([k]) => owns('floor:' + k)).map(([k, f]) => `<button class="item ${R().floor === k ? 'cur' : ''}" data-floor="${k}"><span class="pic"><i class="floor" style="--a:${f.a};--b:${f.b};--s:${f.seam}"></i></span><span>${f.name}</span></button>`).join('');
     }
+    list += `<button class="item toshop" data-shop="1"><span class="pic"><img src="${A.BOX.toDataURL()}" alt=""></span><span>おみせへ</span><small>もっと見る</small></button>`;
     catalog.innerHTML = tabs + `<div class="cat-list">${list}</div>` + '<button class="btn primary small done" id="editDone">完了</button>';
   }
   catalog.addEventListener('click', e => {
@@ -1069,6 +1204,7 @@
     if (tb) { S.ui.catTab = tb.dataset.tab; save(); return renderCatalog(); }
     const b = e.target.closest('.item');
     if (!b || b.disabled) return;
+    if (b.dataset.shop) { setEditing(false); return openShop(S.ui.catTab === 'items' ? 'fur' : 'room'); }
     if (b.dataset.wall) { R().wall = b.dataset.wall; save(); renderCatalog(); dirty = true; return; }
     if (b.dataset.floor) { R().floor = b.dataset.floor; save(); renderCatalog(); dirty = true; return; }
     const type = b.dataset.type, t = TYPES[type];
@@ -1076,6 +1212,417 @@
     S.items.push(t.wall ? { id: S.nextId++, room: S.room, type, x, y: t.y } : { id: S.nextId++, room: S.room, type, x, d: t.flat ? 0.45 : 0.1 });
     save(); renderCatalog(); dirty = true;
   });
+
+  // 見えている窓（小窓のときは小窓）のタイマーを使う
+  const hostLater = (fn, ms) => hostWin.setTimeout(fn, ms);
+
+  /* ---------- おみせ ---------- */
+  TYPES.box = { name: 'おとどけもの', w: 16, h: 13, draw() {} };
+  const shopEl = $('shop'), trialbar = $('trialbar');
+  let shopDetail = null, buyConfirm = false, gst = null, catTalk = '', catBlinkAt = 0, trial = null, opening = null, spinUntil = 0;
+  const SHOP_TABS = [['pick', 'おすすめ'], ['fur', '家具'], ['fashion', 'ファッション'], ['room', '壁・床'], ['gacha', 'ガチャ'], ['book', '図鑑'], ['wish', 'ほしい']];
+  const coinURL = (() => { let u; return () => (u ||= A.COIN.toDataURL()); })();
+  const coinImg = () => `<img class="coin-img" src="${coinURL()}" alt="コイン">`;
+  const picCache = new Map();
+  function picURL(it, big) {
+    const key = it.id + (big ? '|big' : '') + (['outfit', 'hair', 'hairColor'].includes(it.kind) ? '|' + S.look.hair + S.look.hairColor + S.look.outfit : '');
+    if (picCache.has(key)) return picCache.get(key);
+    let c;
+    if (it.kind === 'fur') c = A.thingSprite(it.ref, { on: true, frame: 1, sky: skyNow(), h: 10, m: 10, s: 0 });
+    else if (it.kind === 'wall') c = A.wallTile(it.ref);
+    else if (it.kind === 'floor') {
+      const F = A.FLOORS[it.ref]; c = A.canvas(32, 16); const g = c.getContext('2d');
+      for (let x = 0; x < 32; x++) for (let y = 0; y < 16; y++) { g.fillStyle = F.kind === 'herring' ? ((Math.floor(x / 4) + Math.floor(y / 2)) % 2 ? F.a : F.b) : F.kind === 'checker' ? ((Math.floor(x / 8) + Math.floor(y / 8)) % 2 ? F.a : F.b) : F.kind === 'plain' ? ((x * 7 + y * 3) % 13 ? F.a : F.b) : (Math.floor(x / 8) % 2 ? F.a : F.b); g.fillRect(x, y, 1, 1); }
+    } else c = A.girlSprite({ ...S.look, [it.kind]: it.ref }, 'stand', false, false);
+    const u = c.toDataURL();
+    picCache.set(key, u);
+    return u;
+  }
+  function silhouetteURL(it) {
+    const key = it.id + '|sil';
+    if (picCache.has(key)) return picCache.get(key);
+    const img = A.canvas(1, 1);
+    let src;
+    if (it.kind === 'fur') src = A.thingSprite(it.ref, { on: true, frame: 1, sky: skyNow(), h: 10, m: 10, s: 0 });
+    else if (['outfit', 'hair', 'hairColor'].includes(it.kind)) src = A.girlSprite({ hair: 'long', hairColor: 'brown', outfit: 'mizuiro' }, 'stand', false, false);
+    else src = A.canvas(32, 16), src.getContext('2d').fillRect(0, 0, 32, 16);
+    img.width = src.width; img.height = src.height;
+    const g = img.getContext('2d'); g.drawImage(src, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = 'rgba(58,36,51,.35)'; g.fillRect(0, 0, img.width, img.height);
+    const u = img.toDataURL(); picCache.set(key, u); return u;
+  }
+  const loveLevel = () => Math.min(5, Math.floor(Math.sqrt(S.love / 6)));
+  function addLove(n) { const t = today(); if (n === 1) { t.love = (t.love || 0) + 1; if (t.love > 10) return; } S.love += n; }
+
+  function catSay(text) { catTalk = text; const el = $('shopTalk'); if (el) el.textContent = text; }
+  function catGreeting() {
+    const w = wishItem();
+    if (w && S.coins >= priceOf(w)) return `「${itemName(w)}」、買えるにゃ！`;
+    const sale = SHOP.BY_ID[saleId()];
+    const lim = SHOP.ITEMS.find(i => i.limited && limitedNow(i));
+    return pick([
+      'いらっしゃいませにゃ',
+      sale ? `きょうは「${itemName(sale)}」が2割引にゃ` : 'ゆっくり見てってにゃ',
+      lim ? `${lim.limited.label}の品は、あと${daysLeft(lim)}日にゃ` : '新しい物、入ってるにゃ',
+    ]);
+  }
+  function openShop(tab) {
+    closePanel(); if (editing) setEditing(false); cancelTrial();
+    if (tab) S.ui.shopTab = tab;
+    shopDetail = null; buyConfirm = false; gst = null;
+    shopEl.hidden = false;
+    catSay(catGreeting());
+    renderShop();
+  }
+  function closeShop() { shopEl.hidden = true; shopDetail = null; gst = null; }
+
+  function card(it) {
+    const own = ownedCount(it.id), price = priceOf(it), sale = price < it.price, fur = it.kind === 'fur';
+    const done = own && !fur;
+    return `<button class="card ${done ? 'owned' : ''}" data-id="${it.id}">
+      <span class="pic"><img src="${picURL(it)}" alt=""></span>
+      <span class="nm">${esc(itemName(it))}</span>
+      <span class="pr">${done ? '持ってる' : it.price ? `${coinImg()}${fmtCoin(price)}${sale ? `<s>${fmtCoin(it.price)}</s>` : ''}` : 'ガチャ'}</span>
+      <span class="badges">${sale ? '<em class="b sale">2割引</em>' : ''}${it.limited ? `<em class="b lim">あと${daysLeft(it)}日</em>` : ''}${fur && own ? `<em class="b own">×${own}</em>` : ''}${S.wish.includes(it.id) ? '<em class="b wish">♥</em>' : ''}</span>
+    </button>`;
+  }
+  const grid = list => list.length ? `<div class="cards">${list.map(card).join('')}</div>` : '<p class="empty">ありません</p>';
+  const buyable = i => i.price > 0 && limitedNow(i);
+
+  function shopBody() {
+    const tab = S.ui.shopTab;
+    if (shopDetail) return detailHTML(SHOP.BY_ID[shopDetail]);
+    if (tab === 'pick') {
+      const lim = SHOP.ITEMS.filter(i => i.limited && limitedNow(i));
+      const w = wishItem();
+      return `${w ? wishRow(w, true) : ''}
+        <div class="sec">きょうの入荷 <small>毎日0時に入れかわります</small></div>${grid(todaysPicks())}
+        ${lim.length ? `<div class="sec">期間限定・${lim[0].limited.label} <small>あと${daysLeft(lim[0])}日</small></div>${grid(lim)}` : ''}`;
+    }
+    if (tab === 'fur') {
+      const ser = S.ui.shopSeries;
+      const chips = [['all', 'すべて'], ...['luxe', 'street', 'wa', 'china', 'classic', 'season'].map(k => [k, SHOP.SERIES[k].name])];
+      const list = SHOP.ITEMS.filter(i => i.kind === 'fur' && buyable(i) && (ser === 'all' || i.series === ser));
+      return `<div class="chips2">${chips.map(([k, n]) => `<button class="${ser === k ? 'on' : ''}" data-series="${k}">${n}</button>`).join('')}</div>${grid(list)}`;
+    }
+    if (tab === 'fashion') {
+      const g = k => grid(SHOP.ITEMS.filter(i => i.kind === k && buyable(i)));
+      return `<div class="sec">服</div>${g('outfit')}<div class="sec">髪型</div>${g('hair')}<div class="sec">髪の色</div>${g('hairColor')}`;
+    }
+    if (tab === 'room') {
+      const g = k => grid(SHOP.ITEMS.filter(i => i.kind === k && buyable(i)));
+      return `<div class="sec">壁紙 <small>今いる部屋に貼ります</small></div>${g('wall')}<div class="sec">床</div>${g('floor')}`;
+    }
+    if (tab === 'gacha') return gachaHTML();
+    if (tab === 'book') return bookHTML();
+    if (tab === 'wish') {
+      const list = S.wish.map(id => SHOP.BY_ID[id]).filter(Boolean);
+      return list.length ? `<div class="wishes">${list.map((it, i) => wishRow(it, i === 0)).join('')}</div><p class="hint">いちばん上が目標です。バーのコインの下に進み具合が出て、女の子も応援してくれます。</p>`
+        : '<p class="empty">ほしいものはまだありません。<br>商品を開いて「♡ほしい」を押すと、ここに入ります。</p>';
+    }
+    return '';
+  }
+  function wishRow(it, goal) {
+    const p = priceOf(it), pct = Math.min(100, Math.floor(S.coins / p * 100));
+    return `<div class="wishrow ${goal ? 'goal' : ''}">
+      <button class="pic" data-id="${it.id}"><img src="${picURL(it)}" alt=""></button>
+      <div class="wr-main"><div class="wr-top"><b>${esc(itemName(it))}</b>${goal ? '<em class="b wish">目標</em>' : ''}</div>
+        <div class="meter"><i style="width:${pct}%"></i></div>
+        <small>${S.coins >= p ? '買えます！' : `あと ${fmtCoin(p - S.coins)} コイン`}（${fmtCoin(p)}）</small></div>
+      <div class="wr-btns">${goal ? '' : `<button class="btn small" data-wishtop="${it.id}">目標に</button>`}<button class="btn small" data-unwish="${it.id}">はずす</button></div>
+    </div>`;
+  }
+  function effectText(it) {
+    const out = [];
+    if (it.passive) out.push(`置いておくと、放置でたまるコインが毎分+${it.passive}`);
+    if (it.focus) out.push(`置いておくと、集中を終えたときのコインが+${Math.round(it.focus * 100)}%`);
+    if (it.bgm) out.push(`ラジオに「${SND.BGM_LIST[it.bgm]}」が増える`);
+    const t = it.kind === 'fur' && TYPES[it.ref];
+    if (t && t.light) out.push('夜に光る');
+    if (t && t.act === 'sofa') out.push('女の子が座ってくつろぐ');
+    if (t && t.act === 'mirror') out.push('女の子がおめかしする');
+    return out.map(t2 => `<li>${t2}</li>`).join('');
+  }
+  function detailHTML(it) {
+    const own = ownedCount(it.id), price = priceOf(it), fur = it.kind === 'fur', ser = SHOP.SERIES[it.series];
+    const done = own && !fur, need = price - S.coins, wished = S.wish.includes(it.id);
+    const fashion = ['outfit', 'hair', 'hairColor'].includes(it.kind);
+    let actions = '';
+    if (!it.price) actions = `<p class="hint">ガチャで出ます。${own ? `いま${own}個持っています。` : ''}</p>${btn('shopTab', 'ガチャへ', 'small primary', 'gacha')}`;
+    else if (done) actions = `<p class="hint">持っています。</p>${fashion ? btn('wear', '着る', 'small primary', it.id) : btn('wear', 'この部屋で使う', 'small primary', it.id)}`;
+    else {
+      const w = wishItem();
+      const warn = buyConfirm && w && w.id !== it.id;
+      actions = `${warn ? `<p class="hint warn">目標の「${esc(itemName(w))}」の分が減ります。それでも買いますか？</p>` : ''}
+        <div class="row">
+          ${btn('wish', wished ? '♥ ほしい' : '♡ ほしい', 'small' + (wished ? ' on' : ''), it.id)}
+          ${btn('try', fashion ? '着てみる' : fur ? '置いてみる' : '貼ってみる', 'small', it.id)}
+          ${need > 0 ? `<button class="btn small" disabled>あと ${fmtCoin(need)}</button>` : btn('buy', warn ? 'それでも買う' : `買う`, 'small primary', it.id)}
+        </div>`;
+    }
+    const big = fashion ? 'girl' : it.kind === 'wall' || it.kind === 'floor' ? 'tile' : 'fur';
+    return `<div class="detail">
+      <button class="back" data-act2="back">◀ もどる</button>
+      <div class="d-main">
+        <div class="d-pic ${big}"><img src="${picURL(it)}" alt=""></div>
+        <div class="d-info">
+          <b class="d-name">${esc(itemName(it))}</b>
+          <span class="tag" style="--c:${ser.color}">${ser.name}</span>${it.limited ? `<span class="tag" style="--c:#ff9f43">あと${daysLeft(it)}日</span>` : ''}
+          <p>${esc(it.desc)}</p>
+          ${effectText(it) ? `<ul class="fx">${effectText(it)}</ul>` : ''}
+          ${it.price ? `<div class="d-price">${coinImg()} ${fmtCoin(price)}${price < it.price ? ` <s>${fmtCoin(it.price)}</s> <em class="b sale">2割引</em>` : ''}${fur && own ? ` <small>（持っている数 ${own}）</small>` : ''}</div>` : ''}
+          ${actions}
+        </div>
+      </div>
+    </div>`;
+  }
+  function bookHTML() {
+    return Object.entries(SHOP.SERIES).map(([k, ser]) => {
+      const list = SHOP.ITEMS.filter(i => i.series === k), p = seriesProgress(k);
+      const bonus = SHOP.BONUS_SERIES.includes(k);
+      const doneS = p.have === p.all;
+      return `<div class="book-sec">
+        <div class="sec" style="--c:${ser.color}"><i class="sw2"></i>${ser.name} <small>${p.have}/${p.all}</small>${bonus ? `<em class="b ${doneS ? 'own' : 'lim'}">${doneS ? 'コンプリート！コイン+10%' : 'そろえるとコイン+10%'}</em>` : ''}</div>
+        <div class="tiles">${list.map(it => {
+          const own = ownedCount(it.id) > 0;
+          return `<button class="tile ${own ? 'own' : ''}" data-id="${it.id}" title="${own ? esc(itemName(it)) : '？？？'}"><img src="${own ? picURL(it) : silhouetteURL(it)}" alt="">${own ? '' : '<i>?</i>'}</button>`;
+        }).join('')}</div>
+      </div>`;
+    }).join('');
+  }
+  function gachaHTML() {
+    const pool = SHOP.ITEMS.filter(i => i.series === 'capsule');
+    let stage2 = '';
+    if (gst && gst.phase === 'ready') stage2 = `<button class="capsule-btn" data-act2="openCap"><img src="${A.capsule(SHOP.RARITY[gst.res[0].rarity].col).toDataURL()}" alt=""><span>タップであける</span></button>`;
+    if (gst && gst.phase === 'reveal') {
+      stage2 = `<div class="reveal">${gst.res.map(r => `<div class="rv ${r.rarity}"><img src="${picURL(r)}" alt=""><em>${r.rarity}</em><b>${esc(itemName(r))}</b><small>${r.dup ? `かぶり → +${SHOP.RARITY[r.rarity].back}コイン` : 'NEW!'}</small></div>`).join('')}</div>
+        ${gst.res.some(r => !r.dup) ? '<p class="hint">新しい小物は、模様替えの「家具」から置けます。</p>' : ''}`;
+    }
+    const busy = gst && gst.phase !== 'reveal';
+    return `<div class="gacha">
+      <div class="g-left"><canvas id="gachaCv" width="28" height="42"></canvas></div>
+      <div class="g-right">
+        ${stage2 || `<p class="hint">カプセルトイ。小物が1つ出ます。出た物がかぶったら、コインが少し戻ります。</p>`}
+        <div class="row">
+          <button class="btn small primary" data-act="spin" data-v="1" ${busy || S.coins < SHOP.GACHA_PRICE ? 'disabled' : ''}>1回 ${coinImg()}${SHOP.GACHA_PRICE}</button>
+          <button class="btn small" data-act="spin" data-v="5" ${busy || S.coins < SHOP.GACHA_PRICE * 5 - 25 ? 'disabled' : ''}>5回 ${coinImg()}${SHOP.GACHA_PRICE * 5 - 25}</button>
+        </div>
+        <div class="lbl">ラインナップ <small>ノーマル70% ／ レア25% ／ スーパーレア5%</small></div>
+        <div class="tiles">${pool.map(it => { const own = ownedCount(it.id) > 0; return `<button class="tile ${own ? 'own' : ''} r-${it.rarity}" data-id="${it.id}" title="${own ? esc(itemName(it)) : '？？？'}"><img src="${own ? picURL(it) : silhouetteURL(it)}" alt="">${own ? '' : '<i>?</i>'}<em>${it.rarity}</em></button>`; }).join('')}</div>
+      </div>
+    </div>`;
+  }
+  function renderShop() {
+    if (shopEl.hidden) return;
+    const scroll = shopEl.querySelector('.shop-body')?.scrollTop || 0;
+    const nw = S.wish.length;
+    shopEl.innerHTML = `
+      <div class="shop-head">
+        <canvas id="shopCat" width="26" height="28"></canvas>
+        <div class="shop-talk" id="shopTalk">${esc(catTalk)}</div>
+        <div class="shop-coins">${coinImg()}<b>${fmtCoin(S.coins)}</b></div>
+        <button class="ibtn" data-act2="close" aria-label="お店を閉じる">${I.close}</button>
+      </div>
+      <div class="shop-tabs">${SHOP_TABS.map(([k, n]) => `<button class="${S.ui.shopTab === k && !shopDetail ? 'on' : ''}" data-tab="${k}">${n}${k === 'wish' && nw ? `<small>${nw}</small>` : ''}</button>`).join('')}</div>
+      <div class="shop-body">${shopBody()}</div>`;
+    if (!shopDetail) shopEl.querySelector('.shop-body').scrollTop = scroll;
+    drawShopArt(performance.now(), true);
+  }
+  function drawShopArt(now, force) {
+    if (shopEl.hidden) return;
+    const c = $('shopCat');
+    if (c) {
+      if (now > catBlinkAt + 3200) catBlinkAt = now;
+      const blink = now < catBlinkAt + 150;
+      if (force || c.dataset.b !== String(blink)) { const g = c.getContext('2d'); g.clearRect(0, 0, 26, 28); g.drawImage(A.SHOP_CAT[blink ? 1 : 0], 0, 0); c.dataset.b = String(blink); }
+    }
+    const gc = $('gachaCv');
+    if (gc) {
+      const g = gc.getContext('2d'); g.clearRect(0, 0, 28, 42);
+      let f = 0;
+      if (gst && gst.phase === 'spin') f = Math.floor((now - gst.t0) / 110) % 4;
+      g.drawImage(A.GACHA[f], 0, 0);
+      if (gst && gst.phase === 'spin' && now - gst.t0 > 900) {
+        const k = Math.min(1, (now - gst.t0 - 900) / 400);
+        g.drawImage(A.capsule(SHOP.RARITY[gst.res[0].rarity].col), 9, 30 + Math.round(k * 4));
+      }
+      if (gst && gst.phase === 'spin' && now - gst.t0 > 1400) { gst.phase = 'ready'; renderShop(); }
+    }
+  }
+  function roll() {
+    const pool = SHOP.ITEMS.filter(i => i.series === 'capsule');
+    let r = Math.random() * 100, rar = 'N';
+    for (const [k, v] of Object.entries(SHOP.RARITY)) { if ((r -= v.w) < 0) { rar = k; break; } }
+    return pick(pool.filter(i => i.rarity === rar));
+  }
+  function spinGacha(n) {
+    const cost = n === 1 ? SHOP.GACHA_PRICE : SHOP.GACHA_PRICE * 5 - 25;
+    if (S.coins < cost || (gst && gst.phase !== 'reveal')) return;
+    spend(cost);
+    gst = { phase: 'spin', t0: performance.now(), res: Array.from({ length: n }, roll).sort((a, b) => 'N R SR'.indexOf(b.rarity) - 'N R SR'.indexOf(a.rarity)) };
+    SND.gacha();
+    catSay('ガチャガチャ…');
+    renderShop();
+  }
+  function openCapsule() {
+    gst.res = gst.res.map(it => {
+      const dup = ownedCount(it.id) > 0;
+      S.owned[it.id] = ownedCount(it.id) + 1;
+      if (dup) earnCoins(SHOP.RARITY[it.rarity].back, null, true);
+      return { ...it, dup };
+    });
+    gst.phase = 'reveal';
+    const best = gst.res[0].rarity;
+    SND.reveal(best);
+    catSay(best === 'SR' ? 'す、スーパーレアにゃ！！' : best === 'R' ? 'レアにゃ！' : 'なにが出たかにゃ？');
+    addLove(1);
+    save(); updateCoins(); renderShop();
+  }
+  // 買う → ダンボールで届く
+  function deliver(id) {
+    const x = clamp(Math.round(ch.x + (ch.x > RW() - 40 ? -24 : 24)), 20, RW() - 20);
+    S.items.push({ id: S.nextId++, room: S.room, type: 'box', x, d: 0.45, gift: id });
+    dirty = true;
+  }
+  function buy(it) {
+    const price = priceOf(it);
+    if (S.coins < price) return;
+    const w = wishItem();
+    if (w && w.id !== it.id && !buyConfirm) { buyConfirm = true; return renderShop(); }
+    buyConfirm = false;
+    spend(price);
+    S.owned[it.id] = ownedCount(it.id) + 1;
+    S.wish = S.wish.filter(x => x !== it.id);
+    addLove(3);
+    SND.coin();
+    catSay('まいどありにゃ！お部屋に届けておくにゃ');
+    deliver(it.id);
+    save(); updateCoins(); renderShop();
+    hostLater(() => { closeShop(); say('なにか届いたよ！', 3000); const box = S.items[S.items.length - 1]; if (box.type === 'box') walkNear(box); }, 1100);
+  }
+  function openBox(box) {
+    if (opening) return;
+    opening = { id: box.id, t: performance.now() };
+    endAct(); walkNear(box);
+    hostLater(() => SND.unbox(), 500);
+    hostLater(() => {
+      const it = SHOP.BY_ID[box.gift];
+      S.items = S.items.filter(i => i !== box);
+      opening = null;
+      if (!it) return;
+      for (let i = 0; i < 6; i++) particle('spark', box.x + rand(-10, 10), box.d, floorY(box.d) - rand(4, 24), 1.2);
+      addLove(2);
+      if (it.kind === 'fur') {
+        const t = TYPES[it.ref];
+        S.items.push(t.wall ? { id: S.nextId++, room: S.room, type: it.ref, x: box.x, y: t.y } : { id: S.nextId++, room: S.room, type: it.ref, x: box.x, d: t.flat ? 0.45 : Math.max(0.06, box.d - 0.2) });
+        say(`わぁ！${itemName(it)}！`, 3500);
+        toast('模様替え（えんぴつのボタン）で、好きな場所に動かせます');
+      } else if (it.kind === 'wall' || it.kind === 'floor') {
+        R()[it.kind] = it.ref; patCache.clear();
+        say('模様替えしちゃった！', 3500);
+      } else {
+        S.look[it.kind] = it.ref;
+        spinUntil = performance.now() + 1000;
+        say(pick(['どう？にあう？', 'じゃーん！', 'かわいい？']), 3500);
+      }
+      save(); dirty = true;
+    }, 900);
+  }
+  // 試し置き・試着
+  function startTrial(it) {
+    closeShop();
+    trial = { it };
+    if (it.kind === 'fur') {
+      const t = TYPES[it.ref], x = clamp(Math.round(R().cam + vw / 2), t.w / 2, RW() - t.w / 2);
+      const item = t.wall ? { id: S.nextId++, room: S.room, type: it.ref, x, y: t.y, trial: true } : { id: S.nextId++, room: S.room, type: it.ref, x, d: t.flat ? 0.45 : 0.2, trial: true };
+      S.items.push(item); trial.item = item;
+    } else if (it.kind === 'wall' || it.kind === 'floor') { trial.prev = R()[it.kind]; R()[it.kind] = it.ref; }
+    else { trial.prev = S.look[it.kind]; S.look[it.kind] = it.ref; spinUntil = performance.now() + 800; say('どうかな？'); }
+    renderTrialbar(); dirty = true;
+  }
+  function renderTrialbar() {
+    if (!trial) { trialbar.hidden = true; return; }
+    const it = trial.it, price = priceOf(it), need = price - S.coins;
+    trialbar.hidden = false;
+    trialbar.innerHTML = `<span>${it.kind === 'fur' ? '置いてみています' : ['wall', 'floor'].includes(it.kind) ? '貼ってみています' : '着てみています'}：<b>${esc(itemName(it))}</b>${it.kind === 'fur' ? '<small>（ドラッグで動かせます）</small>' : ''}</span>
+      ${need > 0 ? `<button class="btn small" disabled>あと ${fmtCoin(need)}</button>` : `<button class="btn small primary" data-t="buy">${coinImg()}${fmtCoin(price)} で買う</button>`}
+      <button class="btn small" data-t="back">お店へ</button><button class="btn small" data-t="cancel">やめる</button>`;
+  }
+  function cancelTrial() {
+    if (!trial) return;
+    const it = trial.it;
+    if (trial.item) S.items = S.items.filter(i => i !== trial.item);
+    else if (it.kind === 'wall' || it.kind === 'floor') R()[it.kind] = trial.prev;
+    else S.look[it.kind] = trial.prev;
+    trial = null; renderTrialbar(); dirty = true; save();
+  }
+  function buyTrial() {
+    const it = trial.it, price = priceOf(it);
+    if (S.coins < price) return;
+    spend(price);
+    S.owned[it.id] = ownedCount(it.id) + 1;
+    S.wish = S.wish.filter(x => x !== it.id);
+    if (trial.item) { delete trial.item.trial; }
+    SND.unbox(); addLove(3);
+    for (let i = 0; i < 6; i++) particle('spark', ch.x + rand(-12, 12), ch.d, floorY(ch.d) - rand(10, 34), 1.2);
+    say(pick(['やったー！', 'ありがと！大事にするね']), 3000);
+    trial = null; renderTrialbar(); save(); updateCoins(); dirty = true;
+  }
+  trialbar.addEventListener('click', e => {
+    const b = e.target.closest('[data-t]'); if (!b) return;
+    const t = b.dataset.t;
+    if (t === 'buy') buyTrial();
+    else if (t === 'cancel') cancelTrial();
+    else if (t === 'back') { const id = trial.it.id; cancelTrial(); openShop(); shopDetail = id; renderShop(); }
+  });
+  shopEl.addEventListener('click', e => {
+    const tb = e.target.closest('[data-tab]');
+    if (tb) { S.ui.shopTab = tb.dataset.tab; shopDetail = null; buyConfirm = false; if (tb.dataset.tab !== 'gacha') gst = null; save(); return renderShop(); }
+    const ser = e.target.closest('[data-series]');
+    if (ser) { S.ui.shopSeries = ser.dataset.series; save(); return renderShop(); }
+    const a2 = e.target.closest('[data-act2]');
+    if (a2) {
+      const k = a2.dataset.act2;
+      if (k === 'close') return closeShop();
+      if (k === 'back') { shopDetail = null; buyConfirm = false; catSay(catGreeting()); return renderShop(); }
+      if (k === 'openCap') return openCapsule();
+    }
+    const wt = e.target.closest('[data-wishtop]');
+    if (wt) { S.wish = [wt.dataset.wishtop, ...S.wish.filter(x => x !== wt.dataset.wishtop)]; wishSaid = ''; save(); updateCoins(); return renderShop(); }
+    const uw = e.target.closest('[data-unwish]');
+    if (uw) { S.wish = S.wish.filter(x => x !== uw.dataset.unwish); save(); updateCoins(); return renderShop(); }
+    const b = e.target.closest('[data-act]');
+    if (b && !b.disabled) {
+      const v = b.dataset.v, it = SHOP.BY_ID[v];
+      switch (b.dataset.act) {
+        case 'shopTab': S.ui.shopTab = v; shopDetail = null; return renderShop();
+        case 'spin': return spinGacha(+v);
+        case 'wish':
+          if (S.wish.includes(v)) S.wish = S.wish.filter(x => x !== v);
+          else { S.wish.push(v); catSay(S.wish.length === 1 ? 'ほしいものの目標にしたにゃ。がんばってにゃ' : 'ほしいものに入れたにゃ'); wishSaid = ''; }
+          save(); updateCoins(); return renderShop();
+        case 'try': return startTrial(it);
+        case 'buy': return buy(it);
+        case 'wear':
+          if (it.kind === 'wall' || it.kind === 'floor') { R()[it.kind] = it.ref; patCache.clear(); }
+          else S.look[it.kind] = it.ref;
+          save(); dirty = true; closeShop(); spinUntil = performance.now() + 800; return;
+      }
+    }
+    const c = e.target.closest('[data-id]');
+    if (c) {
+      const it = SHOP.BY_ID[c.dataset.id];
+      if (!it) return;
+      shopDetail = it.id; buyConfirm = false;
+      const need = priceOf(it) - S.coins;
+      catSay(!it.price ? 'それはガチャで出るにゃ' : ownedCount(it.id) && it.kind !== 'fur' ? 'もう持ってるにゃ' : need > 0 ? `あと${fmtCoin(need)}コインにゃ。お仕事がんばってにゃ` : pick(['お目が高いにゃ', 'それ、人気にゃ', '似合うと思うにゃ']));
+      renderShop();
+    }
+  });
+  function wishLine() {
+    const w = wishItem(); if (!w) return '';
+    const need = priceOf(w) - S.coins;
+    return need > 0 ? `${itemName(w)}まで、あと${fmtCoin(need)}コイン！` : `${itemName(w)}、買えるよ！`;
+  }
 
   /* ---------- 部屋の行き来 ---------- */
   function goRoom(to) {
@@ -1102,7 +1649,7 @@
     unlock();
     const p = toCanvas(e), hit = hitTest(p.x, p.y);
     ptr = { sx: e.clientX, sy: e.clientY, cam: R().cam, moved: false, hit, p };
-    if (editing && hit && !hit.del && !hit.dw.e.char) {
+    if (hit && !hit.del && !hit.dw.e.char && (editing || hit.dw.e.it.trial)) {
       const it = hit.dw.e.it;
       ptr.drag = { it, x: it.x, y: it.y, d: it.d };
     }
@@ -1164,9 +1711,12 @@
     if (hit.dw.e.char) {
       if (ring) return stopRing();
       ch.hop = false;
+      addLove(1);
       return say(talkLine());
     }
     const it = hit.dw.e.it, t = TYPES[it.type];
+    if (it.trial) return;
+    if (it.type === 'box') return openBox(it);
     const onLeft = hit.dw.x0 + hit.dw.spr.width / 2 > vw / 2;
     if (t.tool === 'door') return goRoom(it.room === 'main' ? 'kitchen' : 'main');
     if (t.tool) {
@@ -1176,10 +1726,11 @@
     }
     if (t.toggle) {
       it.on = !it.on; save(); dirty = true;
-      if (it.type === 'tv' && it.on) { const sofa = roomItems().find(i => i.type === 'sofa'); if (sofa) startAct('sofa', sofa, 40000); }
+      if (it.type === 'tv' && it.on) { const sofa = roomItems().find(i => TYPES[i.type].act === 'sofa'); if (sofa) startAct('sofa', sofa, 40000); }
       return;
     }
     if (t.act === 'bed' && ch.act === 'bed') { endAct(); return say('ふぁ…おはよ'); }
+    if (t.act === 'pet') addLove(1);
     if (t.act) return startAct(t.act, it);
     walkNear(it);
     const L = { shelf: 'なに読もうかな', plant: '水やりしなきゃ', poster: 'この山、行ってみたいな', fridge: pick(['プリンあった！', 'アイス食べたいな']), counter: pick(['なに作ろっか', 'お湯わかそっと']), table: 'ごはんにしよ', fishbowl: 'きんちゃん、元気？', rug: 'ふかふか' }[it.type];
@@ -1196,13 +1747,20 @@
   $('navL').addEventListener('click', () => { camGoal = clampCam(R().cam - vw * 0.6); });
   $('navR').addEventListener('click', () => { camGoal = clampCam(R().cam + vw * 0.6); });
   $('ringStop').addEventListener('click', stopRing);
-  $('btnEdit').addEventListener('click', () => setEditing(!editing));
+  $('toast').addEventListener('click', e => {
+    if (e.target.id === 'toastBtn' && toastFn) toastFn();
+    $('toast').hidden = true; toastFn = null;
+  });
+  $('btnEdit').addEventListener('click', () => { closeShop(); setEditing(!editing); });
+  $('btnShop').addEventListener('click', () => (shopEl.hidden ? openShop() : closeShop()));
+  $('coins').addEventListener('click', () => openShop(S.wish.length ? 'wish' : 'pick'));
+  $('coinIcon').src = coinURL();
   $('btnSet').addEventListener('click', () => { if (panelKind === 'settings') closePanel(); else { setEditing(false); openPanel('settings', false); } });
   function onKey(e) {
     if (e.target.closest('input, textarea, select')) { if (e.key === 'Escape') e.target.blur(); return; }
     if (e.key === 'ArrowLeft') camGoal = clampCam((camGoal ?? R().cam) - 40);
     else if (e.key === 'ArrowRight') camGoal = clampCam((camGoal ?? R().cam) + 40);
-    else if (e.key === 'Escape') { if (ring) stopRing(); else if (panelKind) closePanel(); else if (editing) setEditing(false); }
+    else if (e.key === 'Escape') { if (ring) stopRing(); else if (!shopEl.hidden) closeShop(); else if (trial) cancelTrial(); else if (panelKind) closePanel(); else if (editing) setEditing(false); }
   }
   function unlock() {
     if (SND.unlock() && S.bgm.kind && !SND.playing()) { SND.setVolume(S.bgm.vol); SND.play(S.bgm.kind); }
@@ -1227,8 +1785,9 @@
 
   /* ---------- 小窓（Chrome / Edge の Document Picture-in-Picture） ----------
      部屋ごと小窓に移す。小窓は常に手前に表示される。元のタブは裏にあってOK。 */
-  let loopId = 0, tickId = 0, ro = null;
+  let loopId = 0, tickId = 0, ro = null, hostWin = window;
   function attachHost(w) {
+    hostWin = w;
     if (ro) ro.disconnect();
     ro = new w.ResizeObserver(measure); ro.observe(stage);
     // 見えている窓のタイマーで動かす（裏のタブは時間が遅れるため）
@@ -1310,13 +1869,39 @@
     if (ch.hop || ring) dirty = true;
     if (ch.say && t > ch.sayUntil) { ch.say = ''; dirty = true; }
     if (dirty || ((parts.length || animated()) && t - lastRender > 120)) { dirty = false; render(t); }
+    drawShopArt(t);
   }
 
-  if (location.hash === '#debug') window.__heya = { S, openPanel, goRoom, startAct, earn, setEditing, ch, roomItems, pomoToggle };
+  // 試着したまま閉じた場合などに、持っていない物を外す
+  for (const k of ['hair', 'hairColor', 'outfit']) if (!owns(`${k}:${S.look[k]}`)) S.look[k] = DEFAULT.look[k];
+  for (const [rk, r] of Object.entries(S.rooms)) for (const k of ['wall', 'floor']) if (!owns(`${k}:${r[k]}`)) r[k] = DEFAULT.rooms[rk][k];
+  updateCoins();
+
+  if (location.hash === '#debug') window.__heya = { S, openPanel, goRoom, startAct, earnCoins, setEditing, ch, roomItems, pomoToggle, openShop, deliver, renderShop, openBox };
 
   attachHost(window);
   tick();
   if (S.city) fetchWeather();
+  // 留守のあいだのコインと、ログインボーナス
+  {
+    const msgs = [];
+    if (welcome) msgs.push(welcome);
+    const away = S.lastSeen ? Date.now() - S.lastSeen : 0;
+    if (away > 5 * 60000) {
+      const g = Math.floor(Math.min(away / 60000, 480) * (1 + effects().passive) * 0.5);
+      if (g > 0) msgs.push(`おかえり！留守のあいだに ${earnCoins(g, null, true)}コイン`);
+    }
+    const k = dateKey();
+    if (S.login.last !== k) {
+      const y = new Date(); y.setDate(y.getDate() - 1);
+      S.login.streak = S.login.last === dateKey(y) ? S.login.streak + 1 : 1;
+      S.login.last = k;
+      const bonus = earnCoins(20 + Math.min(S.login.streak - 1, 10) * 5, null, true);
+      msgs.push(`ログインボーナス ${bonus}コイン（${S.login.streak}日連続）`);
+    }
+    S.lastSeen = Date.now(); save();
+    if (msgs.length) setTimeout(() => toast(msgs.join(' ／ '), null, 9000), 900);
+  }
   setTimeout(() => {
     const ev = (S.events[dateKey()] || '').trim();
     say(ev ? `${greetLine()} 今日は「${ev.slice(0, 12)}」だね` : `${greetLine()}${S.name ? `${S.name}だよ` : '今日もよろしくね'}`, 3500);

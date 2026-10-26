@@ -45,9 +45,15 @@
     reward: () => seq([72, 76, 79, 84, 0, 79, 84], 'square', 0.06, 0.09, 0.12),      // ごほうび
   };
   const chime = k => (CHIMES[k] || CHIMES.remind)();
+  // お買い物の音
+  const coin = () => seq([88, 95], 'square', 0.05, 0.07, 0.12);
+  const gacha = () => seq([60, 62, 60, 62, 60, 62, 64], 'square', 0.035, 0.07, 0.05);
+  const unbox = () => seq([67, 72, 79], 'triangle', 0.16, 0.08, 0.22);
+  const reveal = r => (r === 'SR' ? seq([72, 76, 79, 84, 88, 91, 96], 'square', 0.06, 0.08, 0.16)
+    : r === 'R' ? seq([72, 76, 79, 84], 'square', 0.06, 0.09, 0.14) : seq([72, 76, 79], 'triangle', 0.15, 0.09, 0.2));
 
   /* ---------- BGM ---------- */
-  const BGM_LIST = { rain: '雨の音', fire: '焚き火', waves: '波の音', bugs: '虫の声', music: 'オルゴール' };
+  const BGM_LIST = { rain: '雨の音', fire: '焚き火', waves: '波の音', bugs: '虫の声', music: 'オルゴール', lofi: 'ローファイ', birds: '小鳥のさえずり' };
   let cur = null, want = null, nodes = [], timer = 0, timerHost = null, vol = 0.5, bgmGain = null;
 
   function noise() { const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.start(); nodes.push(s); return s; }
@@ -96,6 +102,35 @@
         }
       },
     },
+    lofi: {
+      // ゆったりしたローファイ（コード・ドラム・レコードのノイズ）
+      start() { noise().connect(filt('bandpass', 3000, 0.5)).connect(gain(0.012)).connect(bgmGain); },
+      tick(t, st) {
+        const step = 60 / 72 / 2;
+        const CH = [[53, 57, 60, 64], [52, 55, 59, 62], [50, 53, 57, 60], [48, 52, 55, 59]];
+        const PENTA = [72, 74, 76, 79, 81];
+        while (st.next < t + 0.6) {
+          const i = st.i, b = i % 8, bar = Math.floor(i / 8) % 4, at = st.next + (b % 2 ? 0.04 : 0);
+          if (b === 0) { CH[bar].forEach(m => tone(at, mtof(m), 2.4, 'triangle', 0.03, bgmGain)); tone(at, mtof(CH[bar][0] - 12), 1.6, 'sine', 0.09, bgmGain); }
+          if (b === 0 || b === 5) kick(at);
+          if (b === 2 || b === 6) burst(at, 0.14, 'bandpass', 1800, 1, 0.12);
+          burst(at, 0.025, 'highpass', 7000, 0.7, b % 2 ? 0.025 : 0.04);
+          if (Math.random() < 0.18) tone(at, mtof(pick(PENTA)), 0.5, 'sine', 0.035, bgmGain);
+          if (Math.random() < 0.3) burst(at + 0.1, 0.004, 'highpass', 2500, 0.7, 0.05);
+          st.i++; st.next += step;
+        }
+      },
+    },
+    birds: {
+      start() { noise().connect(filt('lowpass', 400)).connect(gain(0.05)).connect(bgmGain); },
+      tick(t, st) {
+        while (st.next < t + 0.6) {
+          const n = 2 + Math.floor(Math.random() * 4), base = 2400 + Math.random() * 1600;
+          for (let k = 0; k < n; k++) chirp(st.next + k * 0.11, base * (1 + (k % 2) * 0.12));
+          st.next += 0.4 + Math.random() * 2.2;
+        }
+      },
+    },
     music: {
       start() {},
       tick(t, st) {
@@ -110,6 +145,20 @@
     },
   };
 
+  const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+  function kick(t) {
+    const os = ctx.createOscillator(), g = ctx.createGain();
+    os.frequency.setValueAtTime(110, t); os.frequency.exponentialRampToValueAtTime(45, t + 0.18);
+    g.gain.setValueAtTime(0.4, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.25);
+    os.connect(g).connect(bgmGain); os.start(t); os.stop(t + 0.3);
+  }
+  function chirp(t, f) {
+    const os = ctx.createOscillator(), g = ctx.createGain();
+    os.type = 'sine';
+    os.frequency.setValueAtTime(f, t); os.frequency.exponentialRampToValueAtTime(f * 1.5, t + 0.04); os.frequency.exponentialRampToValueAtTime(f * 1.1, t + 0.08);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.05, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    os.connect(g).connect(bgmGain); os.start(t); os.stop(t + 0.1);
+  }
   function stopNodes() {
     if (timer) timerHost.clearInterval(timer); timer = 0;
     nodes.forEach(n => { try { n.stop(); } catch { /* 停止済み */ } });
@@ -133,5 +182,5 @@
   function setVolume(v) { vol = v; if (bgmGain) bgmGain.gain.value = v; }
   function setHost(w) { host = w; if (cur) { const k = cur; stopNodes(); cur = null; play(k); } }
 
-  window.HeyaSound = { unlock, alarm, chime, BGM_LIST, play, stop, setVolume, setHost, playing: () => cur || want };
+  window.HeyaSound = { unlock, alarm, chime, coin, gacha, unbox, reveal, BGM_LIST, play, stop, setVolume, setHost, playing: () => cur || want };
 })();
