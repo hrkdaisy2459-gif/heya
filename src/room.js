@@ -185,22 +185,19 @@
       say(inStock(w) ? `${itemName(w)}、買えるよ！` : `${itemName(w)}の分、たまったよ！入荷を待とう`, 4000);
     }
   }
-  // 日替わりの品ぞろえ：各コーナー1日3点。順番に回るので、どの商品も数日おきに必ず並ぶ
-  const STOCK_SERIES = ['luxe', 'street', 'wa', 'china', 'classic'], PER_DAY = 3;
+  // 日替わりの品ぞろえ：全商品（家具・壁紙・床・服）から1日10点。順番に回るので、どの商品も数日おきに必ず並ぶ
+  const STOCK_PER_DAY = 10;
   const dayIndex = (d = new Date()) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 86400000);
-  const ROTATION = Object.fromEntries(STOCK_SERIES.map(k => {
-    const list = SHOP.ITEMS.filter(i => i.series === k && i.price > 0 && !i.limited), rnd = SHOP.seeded('heya-stock-' + k);
+  const ROTATION = (() => {
+    const list = SHOP.ITEMS.filter(i => i.price > 0 && !i.limited), rnd = SHOP.seeded('heya-stock-all');
     for (let i = list.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [list[i], list[j]] = [list[j], list[i]]; }
-    return [k, list];
-  }));
+    return list;
+  })();
   const stockCache = new Map();
   function stockOn(day) {
     if (!stockCache.has(day)) {
-      const out = [];
-      for (const k of STOCK_SERIES) {
-        const list = ROTATION[k], n = list.length, start = (day * PER_DAY) % n;
-        for (let j = 0; j < Math.min(PER_DAY, n); j++) out.push(list[(start + j) % n]);
-      }
+      const n = ROTATION.length, start = (day * STOCK_PER_DAY) % n, out = [];
+      for (let j = 0; j < Math.min(STOCK_PER_DAY, n); j++) out.push(ROTATION[(start + j) % n]);
       stockCache.set(day, out);
     }
     return stockCache.get(day);
@@ -240,6 +237,7 @@
     gear: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" fill-rule="evenodd"><path d="M7 1h2v2h2V2h2v2h-1v2h2v2h-2v2h1v2h-2v-1h-2v2H9v1H7v-2H5v1H3v-2h1V8H2V6h2V4H3V2h2v1h2zM7 6v4h2V6z"/></svg>',
     pin: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d="M5 1h6v1h-1v4h1v1h1v1h1v1H9v6H7V9H3V8h1V7h1V6h1V2H5z"/></svg>',
     min: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d="M3 8h10v2H3z"/></svg>',
+    home: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" fill-rule="evenodd"><path d="M7 1h2v1h1v1h1v1h1v1h1v1h1v1h1v2h-2v6H3V9H1V7h1V6h1V5h1V4h1V3h1V2h1zM7 11v4h2v-4z"/></svg>',
     bag: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" fill-rule="evenodd"><path d="M5 2h6v1h1v2h2v10H2V5h2V3h1zM6 4v1h4V4zM5 7v1h1V7zm5 0v1h1V7z"/></svg>',
     close: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d="M2 2h3v3H2zM5 5h3v3H5zM8 8h3v3H8zM11 11h3v3h-3zM11 2h3v3h-3zM8 5h3v3H8zM5 8h3v3H5zM2 11h3v3H2z"/></svg>',
   };
@@ -718,6 +716,12 @@
     const w = wishItem();
     if (w && !parts2.length) { const need = priceOf(w) - S.coins; parts2.push(need > 0 ? `♥ ${itemName(w)}まで あと${fmtCoin(need)}` : inStock(w) ? `♥ ${itemName(w)}が買えます（きょう入荷）` : `♥ ${itemName(w)}の分たまりました`); }
     $('status').textContent = parts2.join(' ・ ');
+    const bs = $('btnShop'), inShop = S.room === 'shop';
+    if (bs.dataset.m !== String(inShop)) {
+      bs.dataset.m = String(inShop); bs.innerHTML = inShop ? I.home : I.bag;
+      bs.title = inShop ? 'おうちに帰る' : 'おみせに行く'; bs.setAttribute('aria-label', bs.title);
+      bs.classList.toggle('home', inShop);
+    }
     $('title').textContent = S.room === 'shop' ? 'おみせ' : (S.name ? `${S.name}の` : '') + (S.room === 'kitchen' ? 'キッチン' : 'へや');
     const big = $('timerBig'); if (big) big.textContent = fmt(tleft);
     const ts = $('timerStart'); if (ts) ts.textContent = S.timer.running ? '一時停止' : (tleft < S.timer.dur && tleft > 0 ? '再開' : 'スタート');
@@ -958,7 +962,7 @@
 
   /* ---------- パネル（道具） ---------- */
   const BGM_UNLOCK = { lofi: 'fur:record', birds: 'fur:birdcage' };
-  const TITLES = { item: 'しょうひん', alarm: 'アラーム', timer: 'タイマー', memo: 'メモ', todo: 'やること', bgm: 'ラジオ', calendar: 'カレンダー', remind: 'リマインダー', dress: 'きせかえ', stats: 'がんばり記録', settings: 'せってい' };
+  const TITLES = { item: 'しょうひん', gacha: 'カプセルトイ', book: '図鑑', wish: 'ほしいもの', alarm: 'アラーム', timer: 'タイマー', memo: 'メモ', todo: 'やること', bgm: 'ラジオ', calendar: 'カレンダー', remind: 'リマインダー', dress: 'きせかえ', stats: 'がんばり記録', settings: 'せってい' };
   const WEEK = '日月火水木金土';
   let cal = null, memoConfirm = false, exportCode = '', importMsg = '', cityResults = null;
   function openPanel(kind, onLeft) {
@@ -1060,6 +1064,9 @@
       <p class="hint">時間になると、ちいさな音と一緒に声をかけてくれます。</p>`;
     },
     item() { return detailHTML(SHOP.BY_ID[panelItem]); },
+    gacha() { return gachaHTML(); },
+    book() { return bookHTML(); },
+    wish() { return wishHTML(); },
     dress() {
       const L = S.look;
       const opt = (kind, entries, render) => entries.filter(([k]) => owns(`${kind}:${k}`)).map(render).join('');
@@ -1117,6 +1124,7 @@
     panel.innerHTML = `<header><h2>${TITLES[k]}</h2><button class="ibtn" data-act="close" aria-label="閉じる">${I.close}</button></header><div class="body">${PANELS[k]()}</div>`;
     panel.querySelector('.body').scrollTop = scroll;
     if (k === 'dress') drawDressPreview();
+    if (k === 'gacha') drawShopArt(performance.now());
     refreshDynamic();
     if (focus) {
       const f = $('todoText') || panel.querySelector('textarea[data-f="memo"]');
@@ -1133,6 +1141,15 @@
   const SHOP_ACTS = new Set(['wish', 'try', 'buy', 'wear', 'shopTab', 'spin']);
   panel.addEventListener('click', e => {
     if (e.target.closest('[data-act2="back"]')) return closePanel();
+    if (e.target.closest('[data-act2="openCap"]')) return openCapsule();
+    const wt = e.target.closest('[data-wishtop]');
+    if (wt) { S.wish = [wt.dataset.wishtop, ...S.wish.filter(x => x !== wt.dataset.wishtop)]; wishSaid = ''; save(); updateCoins(); return renderPanel(); }
+    const uw = e.target.closest('[data-unwish]');
+    if (uw) { S.wish = S.wish.filter(x => x !== uw.dataset.unwish); save(); updateCoins(); return renderPanel(); }
+    if (['gacha', 'book', 'wish'].includes(panelKind)) {
+      const c = e.target.closest('[data-id]');
+      if (c && !e.target.closest('[data-act]') && SHOP.BY_ID[c.dataset.id]) return openItemPanel(c.dataset.id, panel.classList.contains('left'));
+    }
     const sb = e.target.closest('[data-act]');
     if (sb && !sb.disabled && SHOP_ACTS.has(sb.dataset.act)) return shopAct(sb.dataset.act, sb.dataset.v);
     const b = e.target.closest('[data-act]');
@@ -1297,8 +1314,7 @@
   /* ---------- おみせ ---------- */
   TYPES.box = { name: 'おとどけもの', w: 16, h: 13, draw() {} };
   const shopEl = $('shop'), trialbar = $('trialbar');
-  let shopDetail = null, buyConfirm = false, gst = null, catTalk = '', catBlinkAt = 0, trial = null, opening = null, spinUntil = 0;
-  const SHOP_TABS = [['pick', 'おすすめ'], ['fur', '家具'], ['fashion', 'ファッション'], ['room', '壁・床'], ['gacha', 'ガチャ'], ['book', '図鑑'], ['wish', 'ほしい']];
+  let buyConfirm = false, gst = null, catTalk = '', trial = null, opening = null, spinUntil = 0;
   const coinURL = (() => { let u; return () => (u ||= A.COIN.toDataURL()); })();
   const coinImg = () => `<img class="coin-img" src="${coinURL()}" alt="コイン">`;
   const picCache = new Map();
@@ -1340,13 +1356,25 @@
     let x = 0, nid = -1;
     const add = o => { const it = { id: nid--, room: 'shop', ...o }; items.push(it); return it; };
     function corner(key, label, desc, wall, floor, fill) {
-      const x0 = x, cur = { back: x0 + 12, wall: x0 + 12, front: x0 + 18 };
+      const x0 = x, cur = { back: x0 + 12, wall: x0 + 12, front: x0 + 18 }, tall = [], later = [];
       const P = {
         cur,
-        back(type, o = {}) { const w = TYPES[type].w; const it = add({ type, x: cur.back + w / 2, d: 0.05, ...o }); cur.back += w + (o.gap ?? 10); return it; },
-        wall(type, o = {}) { const t = TYPES[type]; const it = add({ type, x: cur.wall + t.w / 2, y: Math.max(t.y, t.h + 30), ...o }); cur.wall += t.w + (o.gap ?? 10); return it; },
+        back(type, o = {}) {
+          const w = TYPES[type].w; const it = add({ type, x: cur.back + w / 2, d: 0.05, ...o }); cur.back += w + (o.gap ?? 10);
+          if (TYPES[type].h > 18) tall.push([it.x - w / 2, it.x + w / 2]);
+          return it;
+        },
+        wall(type, o = {}) {
+          // 背の高い家具のうしろに隠れないように、横にずらす
+          const t = TYPES[type];
+          let xl = cur.wall, hit;
+          while ((hit = tall.find(([a, b]) => xl < b + 4 && xl + t.w > a - 4))) xl = hit[1] + 6;
+          const it = add({ type, x: xl + t.w / 2, y: Math.max(t.y, t.h + 30), ...o }); cur.wall = xl + t.w + (o.gap ?? 10); return it;
+        },
         front(type, o = {}) { const w = TYPES[type].w; const it = add({ type, x: cur.front + w / 2, d: 0.5, ...o }); cur.front += w + (o.gap ?? 12); return it; },
-        product(it) {
+        product(it, now) {
+          const isWall = it.kind === 'wall' || (it.kind === 'fur' && TYPES[it.ref].wall);
+          if (isWall && !now) { later.push(it); return; }
           const base = { shopId: it.id, disp: true };
           if (it.kind === 'fur') {
             const t = TYPES[it.ref];
@@ -1362,6 +1390,7 @@
         },
       };
       fill(P);
+      later.forEach(it => P.product(it, true));
       const x1 = Math.max(cur.back, cur.wall, cur.front, x0 + 120) + 8;
       add({ type: 'hangSign', ref: key, x: Math.round((x0 + x1) / 2), y: 20 });
       add({ type: 'pendant', x: x0 + 18, y: 24 }); add({ type: 'pendant', x: x1 - 18, y: 24 });
@@ -1380,9 +1409,9 @@
     const lim = SHOP.ITEMS.filter(i => i.limited && limitedNow(i));
     if (lim.length) corner('season', `期間限定・${lim[0].limited.label}`, `あと${daysLeft(lim[0])}日でおしまい`, 'wood', 'dark', P => lim.forEach(P.product));
     const deco = { luxe: ['luxe', 'herring'], street: ['brick', 'concrete'], wa: ['wa', 'tatami'], china: ['china', 'dark'] };
-    const today3 = k => todaysStock().filter(i => i.series === k);
-    for (const k of Object.keys(deco)) corner(k, SHOP.SERIES[k].name, `${SHOP.SERIES[k].desc}。きょうの3点`, deco[k][0], deco[k][1], P => today3(k).forEach(P.product));
-    corner('classic', '定番・試着室', 'きょうの3点。マネキンやウィッグを押すと試着できます', 'mint', 'tile', P => { P.back('fitting'); today3('classic').forEach(P.product); });
+    const todays = k => todaysStock().filter(i => i.series === k);
+    for (const k of Object.keys(deco)) if (todays(k).length) corner(k, SHOP.SERIES[k].name, SHOP.SERIES[k].desc, deco[k][0], deco[k][1], P => todays(k).forEach(P.product));
+    corner('classic', '定番・試着室', 'マネキンやウィッグを押すと試着できます', 'mint', 'tile', P => { P.back('fitting'); todays('classic').forEach(P.product); });
     corner('gacha', 'カプセルトイ', `1回${SHOP.GACHA_PRICE}コイン。ここでしか手に入らない小物`, 'stars', 'carpet', P => { P.back('gachaM', { d: 0.08 }); P.back('gachaM', { d: 0.08 }); P.back('gachaM', { d: 0.08 }); P.front('plant'); });
     ROOMS.shop.w = x;
     shopRoom = { items, segs, day: dateKey() };
@@ -1412,7 +1441,7 @@
     openPanel('item', onLeft);
   }
   const lookLine = p => (S.wish.includes(p.id) ? 'これ、ほしいなぁ…' : ownedCount(p.id) && p.kind !== 'fur' ? 'これ持ってる！' : pick(['かわいい…', 'いいなぁ', 'おしゃれ〜', 'これ素敵', `${itemName(p)}だって`]));
-  function goShop() { if (S.room !== 'shop') goRoom('shop'); else openShop(); }
+  function goShop() { if (S.room !== 'shop') goRoom('shop'); }
   function catGreeting() {
     const w = wishItem(), ws = wishInStock();
     if (w && inStock(w) && S.coins >= priceOf(w)) return `「${itemName(w)}」、買えるにゃ！`;
@@ -1425,61 +1454,17 @@
       lim ? `${lim.limited.label}の品は、あと${daysLeft(lim)}日にゃ` : '新しい物、入ってるにゃ',
     ]);
   }
+  // ガチャ・図鑑・ほしいものはパネルで開く。それ以外は歩けるおみせへ
   function openShop(tab) {
-    closePanel(); if (editing) setEditing(false); cancelTrial();
-    if (tab) S.ui.shopTab = tab;
-    shopDetail = null; buyConfirm = false; gst = null;
-    shopEl.hidden = false;
-    catSay(catGreeting());
-    renderShop();
+    if (tab === 'gacha' || tab === 'book' || tab === 'wish') { if (tab !== 'gacha') gst = null; return openPanel(tab, false); }
+    return goShop();
   }
-  function closeShop() { shopEl.hidden = true; shopDetail = null; gst = null; }
-
-  function card(it) {
-    const own = ownedCount(it.id), price = priceOf(it), sale = price < it.price, fur = it.kind === 'fur';
-    const done = own && !fur;
-    return `<button class="card ${done ? 'owned' : ''}" data-id="${it.id}">
-      <span class="pic"><img src="${picURL(it)}" alt=""></span>
-      <span class="nm">${esc(itemName(it))}</span>
-      <span class="pr">${done ? '持ってる' : it.price ? `${coinImg()}${fmtCoin(price)}${sale ? `<s>${fmtCoin(it.price)}</s>` : ''}` : 'ガチャ'}</span>
-      <span class="badges">${sale ? '<em class="b sale">2割引</em>' : ''}${it.limited ? `<em class="b lim">あと${daysLeft(it)}日</em>` : ''}${fur && own ? `<em class="b own">×${own}</em>` : ''}${S.wish.includes(it.id) ? '<em class="b wish">♥</em>' : ''}</span>
-    </button>`;
-  }
-  const grid = list => list.length ? `<div class="cards">${list.map(card).join('')}</div>` : '<p class="empty">ありません</p>';
-  const buyable = i => i.price > 0 && inStock(i);
-
-  function shopBody() {
-    const tab = S.ui.shopTab;
-    if (shopDetail) return detailHTML(SHOP.BY_ID[shopDetail]);
-    if (tab === 'pick') {
-      const lim = SHOP.ITEMS.filter(i => i.limited && limitedNow(i));
-      const w = wishItem();
-      return `${w ? wishRow(w, true) : ''}
-        <div class="sec">きょうの品ぞろえ <small>毎日0時に入れかわります。ひとつは2割引</small></div>${grid(todaysStock())}
-        ${lim.length ? `<div class="sec">期間限定・${lim[0].limited.label} <small>あと${daysLeft(lim[0])}日</small></div>${grid(lim)}` : ''}`;
-    }
-    if (tab === 'fur') {
-      const ser = S.ui.shopSeries;
-      const chips = [['all', 'すべて'], ...['luxe', 'street', 'wa', 'china', 'classic', 'season'].map(k => [k, SHOP.SERIES[k].name])];
-      const list = SHOP.ITEMS.filter(i => i.kind === 'fur' && buyable(i) && (ser === 'all' || i.series === ser));
-      return `<div class="chips2">${chips.map(([k, n]) => `<button class="${ser === k ? 'on' : ''}" data-series="${k}">${n}</button>`).join('')}</div>${grid(list)}`;
-    }
-    if (tab === 'fashion') {
-      const g = k => grid(SHOP.ITEMS.filter(i => i.kind === k && buyable(i)));
-      return `<div class="sec">服</div>${g('outfit')}<div class="sec">髪型</div>${g('hair')}<div class="sec">髪の色</div>${g('hairColor')}`;
-    }
-    if (tab === 'room') {
-      const g = k => grid(SHOP.ITEMS.filter(i => i.kind === k && buyable(i)));
-      return `<div class="sec">壁紙 <small>今いる部屋に貼ります</small></div>${g('wall')}<div class="sec">床</div>${g('floor')}`;
-    }
-    if (tab === 'gacha') return gachaHTML();
-    if (tab === 'book') return bookHTML();
-    if (tab === 'wish') {
-      const list = S.wish.map(id => SHOP.BY_ID[id]).filter(Boolean);
-      return list.length ? `<div class="wishes">${list.map((it, i) => wishRow(it, i === 0)).join('')}</div><p class="hint">いちばん上が目標です。バーのコインの下に進み具合が出て、女の子も応援してくれます。</p>`
-        : '<p class="empty">ほしいものはまだありません。<br>商品を開いて「♡ほしい」を押すと、ここに入ります。</p>';
-    }
-    return '';
+  function closeShop() { shopEl.hidden = true; }
+  function wishHTML() {
+    const list = S.wish.map(id => SHOP.BY_ID[id]).filter(Boolean);
+    return `<div class="stars small">${coinImg()} ${fmtCoin(S.coins)}</div>` + (list.length
+      ? `<div class="wishes">${list.map((it, i) => wishRow(it, i === 0)).join('')}</div><p class="hint">いちばん上が目標です。バーのコインの下に進み具合が出ます。</p>`
+      : '<p class="empty">ほしいものはまだありません。<br>おみせで商品を押して「♡ほしい」を押すと、ここに入ります。</p>');
   }
   function wishRow(it, goal) {
     const p = priceOf(it), pct = Math.min(100, Math.floor(S.coins / p * 100));
@@ -1574,42 +1559,19 @@
       </div>
     </div>`;
   }
-  function renderShop() {
-    if (shopEl.hidden) return;
-    const scroll = shopEl.querySelector('.shop-body')?.scrollTop || 0;
-    const nw = S.wish.length;
-    shopEl.innerHTML = `
-      <div class="shop-head">
-        <canvas id="shopCat" width="26" height="28"></canvas>
-        <div class="shop-talk" id="shopTalk">${esc(catTalk)}</div>
-        <div class="shop-coins">${coinImg()}<b>${fmtCoin(S.coins)}</b></div>
-        <button class="ibtn" data-act2="close" aria-label="お店を閉じる">${I.close}</button>
-      </div>
-      <div class="shop-tabs">${SHOP_TABS.map(([k, n]) => `<button class="${S.ui.shopTab === k && !shopDetail ? 'on' : ''}" data-tab="${k}">${n}${k === 'wish' && nw ? `<small>${nw}</small>` : ''}</button>`).join('')}</div>
-      <div class="shop-body">${shopBody()}</div>`;
-    if (!shopDetail) shopEl.querySelector('.shop-body').scrollTop = scroll;
-    drawShopArt(performance.now(), true);
-  }
-  function drawShopArt(now, force) {
-    if (shopEl.hidden) return;
-    const c = $('shopCat');
-    if (c) {
-      if (now > catBlinkAt + 3200) catBlinkAt = now;
-      const blink = now < catBlinkAt + 150;
-      if (force || c.dataset.b !== String(blink)) { const g = c.getContext('2d'); g.clearRect(0, 0, 26, 28); g.drawImage(A.SHOP_CAT[blink ? 1 : 0], 0, 0); c.dataset.b = String(blink); }
+  function renderShop() { if (panelKind === 'gacha' || panelKind === 'book' || panelKind === 'wish' || panelKind === 'item') renderPanel(); }
+  function drawShopArt(now) {
+    const gc = panelKind === 'gacha' && $('gachaCv');
+    if (!gc) return;
+    const g = gc.getContext('2d'); g.clearRect(0, 0, 28, 42);
+    let f = 0;
+    if (gst && gst.phase === 'spin') f = Math.floor((now - gst.t0) / 110) % 4;
+    g.drawImage(A.GACHA[f], 0, 0);
+    if (gst && gst.phase === 'spin' && now - gst.t0 > 900) {
+      const k = Math.min(1, (now - gst.t0 - 900) / 400);
+      g.drawImage(A.capsule(SHOP.RARITY[gst.res[0].rarity].col), 9, 30 + Math.round(k * 4));
     }
-    const gc = $('gachaCv');
-    if (gc) {
-      const g = gc.getContext('2d'); g.clearRect(0, 0, 28, 42);
-      let f = 0;
-      if (gst && gst.phase === 'spin') f = Math.floor((now - gst.t0) / 110) % 4;
-      g.drawImage(A.GACHA[f], 0, 0);
-      if (gst && gst.phase === 'spin' && now - gst.t0 > 900) {
-        const k = Math.min(1, (now - gst.t0 - 900) / 400);
-        g.drawImage(A.capsule(SHOP.RARITY[gst.res[0].rarity].col), 9, 30 + Math.round(k * 4));
-      }
-      if (gst && gst.phase === 'spin' && now - gst.t0 > 1400) { gst.phase = 'ready'; renderShop(); }
-    }
+    if (gst && gst.phase === 'spin' && now - gst.t0 > 1400) { gst.phase = 'ready'; renderShop(); }
   }
   function roll() {
     const pool = SHOP.ITEMS.filter(i => i.series === 'capsule');
@@ -1749,41 +1711,13 @@
     const t = b.dataset.t;
     if (t === 'buy') buyTrial();
     else if (t === 'cancel') cancelTrial();
-    else if (t === 'back') { const id = trial.it.id; cancelTrial(); openShop(); shopDetail = id; renderShop(); }
+    else if (t === 'back') { const id = trial.it.id; cancelTrial(); if (S.room === 'shop') openItemPanel(id); else goRoom('shop'); }
   });
-  shopEl.addEventListener('click', e => {
-    const tb = e.target.closest('[data-tab]');
-    if (tb) { S.ui.shopTab = tb.dataset.tab; shopDetail = null; buyConfirm = false; if (tb.dataset.tab !== 'gacha') gst = null; save(); return renderShop(); }
-    const ser = e.target.closest('[data-series]');
-    if (ser) { S.ui.shopSeries = ser.dataset.series; save(); return renderShop(); }
-    const a2 = e.target.closest('[data-act2]');
-    if (a2) {
-      const k = a2.dataset.act2;
-      if (k === 'close') return closeShop();
-      if (k === 'back') { shopDetail = null; buyConfirm = false; catSay(catGreeting()); return renderShop(); }
-      if (k === 'openCap') return openCapsule();
-    }
-    const wt = e.target.closest('[data-wishtop]');
-    if (wt) { S.wish = [wt.dataset.wishtop, ...S.wish.filter(x => x !== wt.dataset.wishtop)]; wishSaid = ''; save(); updateCoins(); return renderShop(); }
-    const uw = e.target.closest('[data-unwish]');
-    if (uw) { S.wish = S.wish.filter(x => x !== uw.dataset.unwish); save(); updateCoins(); return renderShop(); }
-    const b = e.target.closest('[data-act]');
-    if (b && !b.disabled) return shopAct(b.dataset.act, b.dataset.v);
-    const c = e.target.closest('[data-id]');
-    if (c) {
-      const it = SHOP.BY_ID[c.dataset.id];
-      if (!it) return;
-      shopDetail = it.id; buyConfirm = false;
-      const need = priceOf(it) - S.coins;
-      catSay(!it.price ? 'それはガチャで出るにゃ' : ownedCount(it.id) && it.kind !== 'fur' ? 'もう持ってるにゃ' : need > 0 ? `あと${fmtCoin(need)}コインにゃ。お仕事がんばってにゃ` : pick(['お目が高いにゃ', 'それ、人気にゃ', '似合うと思うにゃ']));
-      renderShop();
-    }
-  });
-  const rerender = () => { if (!shopEl.hidden) renderShop(); if (panelKind === 'item') renderPanel(); };
+  const rerender = () => renderShop();
   function shopAct(act, v) {
     const it = SHOP.BY_ID[v];
     switch (act) {
-      case 'shopTab': if (shopEl.hidden) return openShop(v); S.ui.shopTab = v; shopDetail = null; return renderShop();
+      case 'shopTab': return openShop(v);
       case 'spin': return spinGacha(+v);
       case 'wish':
         if (S.wish.includes(v)) S.wish = S.wish.filter(x => x !== v);
@@ -1822,7 +1756,10 @@
       R().cam = clampCam(x - vw / 3);
       hover = null; closePanel();
       save(); refreshDynamic();
-      if (to === 'shop') { say(pick(['おみせ着いた！', 'なに買おうかな'])); hostLater(() => catSay(catGreeting()), 900); }
+      if (to === 'shop') {
+        say(pick(['おみせ着いた！', 'なに買おうかな'])); hostLater(() => catSay(catGreeting()), 900);
+        if (!S.ui.shopHint) { S.ui.shopHint = true; hostLater(() => toast('おうちに帰るときは、右上の家のボタンか、入口のドアを押してね', null, 8000), 600); }
+      }
       else if (to === 'kitchen' && S.home !== 'kitchen') say(pick(['なに食べよっか', 'キッチンだよ']));
       else if (roomItems().some(i => i.type === 'box')) say('ただいま〜 荷物とどいてる！');
       else say('ただいま〜');
@@ -1908,7 +1845,7 @@
     const onLeft = hit.dw.x0 + hit.dw.spr.width / 2 > vw / 2;
     if (it.room === 'shop') {
       if (it.shopId) { walkNear(it); return openItemPanel(it.shopId, onLeft); }
-      if (it.type === 'shopcat' || it.type === 'counter') { catSay(catGreeting()); return openShop('pick'); }
+      if (it.type === 'shopcat' || it.type === 'counter') { walkNear(it); return catSay(catGreeting()); }
       if (it.type === 'gachaM') return openShop('gacha');
       if (it.type === 'lectern') return openShop('book');
       if (it.type === 'fitting') { walkNear(it); return say('マネキンを押すと、試着できるよ'); }
@@ -1948,8 +1885,8 @@
     $('toast').hidden = true; toastFn = null;
   });
   $('btnEdit').addEventListener('click', () => { closeShop(); if (S.room === 'shop') return toast('おみせの中は模様替えできません'); setEditing(!editing); });
-  $('btnShop').addEventListener('click', () => (!shopEl.hidden ? closeShop() : goShop()));
-  $('coins').addEventListener('click', () => openShop(S.wish.length ? 'wish' : 'pick'));
+  $('btnShop').addEventListener('click', () => goRoom(S.room === 'shop' ? (S.home || 'main') : 'shop'));
+  $('coins').addEventListener('click', () => (panelKind === 'wish' ? closePanel() : openPanel('wish', false)));
   $('coinIcon').src = coinURL();
   $('btnSet').addEventListener('click', () => { if (panelKind === 'settings') closePanel(); else { setEditing(false); openPanel('settings', false); } });
   function onKey(e) {
