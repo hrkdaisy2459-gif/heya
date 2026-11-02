@@ -4,7 +4,8 @@
 (() => {
   'use strict';
 
-  const OUTLINE = '#3a2433';
+  const OUTLINE = '#6a5d50';       // 家具のふち（やわらかい茶色がかったグレー）
+  const GIRL_OUTLINE = '#3a2433';  // 女の子のふち（いままでどおり）
   const BACK = 86; // 奥の壁の高さ（room.js と同じ）
 
   /* ---------- 描画の道具 ---------- */
@@ -317,7 +318,7 @@
         }));
       } else if (pose === 'sitFront') rows = frontRows('sit', shut, look);
       else rows = frontRows(pose, shut, look);
-      c = sprite(GIRL_W, rows.length, P => P.map(0, 0, rows, pal));
+      c = sprite(GIRL_W, rows.length, P => P.map(0, 0, rows, pal), GIRL_OUTLINE);
     }
     if (girlCache.size > 200) girlCache.clear();
     girlCache.set(key, c);
@@ -412,296 +413,267 @@
 
   /* ---------- 家具 ----------
      name, tool(開く道具), wall(壁掛け), w/h(ドット), y(壁掛けの下端), toggle, flat, act(女の子の行動), draw(P, 状態) */
-  const NOTE_COLS = ['#ffe58a', '#ffb3c6', '#a8dcf5', '#bde8a8', '#ffe58a', '#ffcf9e'];
+  // ナチュラルミニマル（標準の家具）の色
+  const N = {
+    oak: '#d4b28a', oakL: '#e6cba7', oakD: '#b89068', oakDD: '#9a7552', black: '#2f2c28', grey: '#9a9590',
+    linen: '#e4ddd0', linenD: '#cfc6b6', linenL: '#f1ece3', white: '#fbfaf7', paper: '#f4f1ea',
+    sage: '#9aab8c', sageD: '#7d9070', sageL: '#cfd8c4', leaf: '#6f8f6a', leafD: '#4f6e4d', leafL: '#9fb98e',
+    ceramic: '#f4f1ea', ceramicD: '#dcd6cb', clay: '#c9a07a',
+  };
+  const NOTE_COLS = ['#ffffff', '#f4efe4', '#ffffff', '#eef0e8', '#f4efe4', '#ffffff'];
   const TYPES = {
     clock: {
-      // 本物の時刻どおりに、時針・分針・秒針が動く
-      name: '時計', tool: 'alarm', wall: true, w: 21, h: 21, y: 34,
+      // 数字のないシンプルな時計。本物の時刻どおりに針が動く
+      name: '時計', tool: 'alarm', wall: true, w: 19, h: 19, y: 34,
       key: st => `${st.h % 12}:${st.m}:${st.s}:${st.alarm ? 1 : 0}`,
       draw(P, st) {
-        const c = 10, TAU = Math.PI * 2;
-        P.ell(c, c, 10, 10, C.pinkD).ell(c, c, 9, 9, C.white);
-        for (let i = 0; i < 12; i++) { // 目盛り（3・6・9・12時は2つ）
-          const a = i / 12 * TAU, x = Math.round(c + Math.sin(a) * 7.6), y = Math.round(c - Math.cos(a) * 7.6);
-          P.p(x, y, i % 3 ? '#e8b4c3' : C.pinkD);
-          if (i % 3 === 0) P.p(Math.round(c + Math.sin(a) * 6.6), Math.round(c - Math.cos(a) * 6.6), C.pinkD);
-        }
-        const ha = ((st.h % 12) + st.m / 60) / 12 * TAU, ma = (st.m + st.s / 60) / 60 * TAU, sa = st.s / 60 * TAU;
-        P.line(c, c, c + Math.sin(ha) * 4.4, c - Math.cos(ha) * 4.4, OUTLINE);
-        P.line(c, c, c + Math.sin(ma) * 7, c - Math.cos(ma) * 7, '#5b4a66');
-        P.line(c, c, c + Math.sin(sa) * 7.5, c - Math.cos(sa) * 7.5, '#ff5a6e');
-        P.p(c, c, '#e0485e');
-        if (st.alarm) P.r(17, -1, 4, 4, '#ff5a6e').r(18, 0, 2, 2, '#ffd0d6');
+        const c = 9, TAU = Math.PI * 2;
+        P.ell(c, c, 9, 9, N.black).ell(c, c, 8, 8, N.white);
+        for (let i = 0; i < 12; i++) { const a = i / 12 * TAU; P.p(Math.round(c + Math.sin(a) * 7), Math.round(c - Math.cos(a) * 7), i % 3 ? '#d6d2cb' : N.grey); }
+        const ha = ((st.h % 12) + st.m / 60) / 12 * TAU, ma = (st.m + (st.s || 0) / 60) / 60 * TAU, sa = (st.s || 0) / 60 * TAU;
+        P.line(c, c, c + Math.sin(ha) * 4, c - Math.cos(ha) * 4, N.black);
+        P.line(c, c, c + Math.sin(ma) * 6.4, c - Math.cos(ma) * 6.4, N.black);
+        P.line(c, c, c + Math.sin(sa) * 6.8, c - Math.cos(sa) * 6.8, N.sageD);
+        P.p(c, c, N.sageD);
+        if (st.alarm) P.r(16, -1, 3, 3, N.sageD);
       },
     },
     board: {
-      name: 'コルクボード', tool: 'todo', wall: true, w: 34, h: 23, y: 56,
+      name: 'ピンボード', tool: 'todo', wall: true, w: 30, h: 22, y: 58,
       key: st => String(Math.min(st.todos, 6)),
       draw(P, st) {
-        P.r(0, 0, 34, 23, C.wood).r(0, 0, 34, 1, C.woodL).r(2, 2, 30, 19, '#e2b07a');
-        [[5, 17], [14, 5], [27, 16], [20, 18], [9, 11]].forEach(([x, y]) => P.p(x, y, '#c99560'));
-        const pos = [[4, 4], [14, 3], [24, 4], [5, 12], [15, 12], [24, 11]];
+        P.r(0, 0, 30, 22, N.oakL).r(2, 2, 26, 18, N.linenL).r(0, 0, 30, 1, '#f0dcc0');
+        const pos = [[3, 4], [11, 3], [20, 4], [4, 12], [12, 12], [20, 11]];
         for (let i = 0; i < Math.min(st.todos, 6); i++) {
           const [x, y] = pos[i];
-          P.r(x, y, 7, 7, NOTE_COLS[i]).r(x + 1, y + 3, 5, 1, 'rgba(0,0,0,.18)').r(x + 1, y + 5, 3, 1, 'rgba(0,0,0,.18)').p(x + 3, y, '#e0485e');
+          P.r(x, y, 7, 6, NOTE_COLS[i]).r(x + 1, y + 2, 5, 1, '#c9c2b4').r(x + 1, y + 4, 3, 1, '#c9c2b4').p(x + 3, y, i % 2 ? N.sageD : N.black);
         }
       },
     },
     desk: {
-      name: 'つくえ', tool: 'memo', w: 48, h: 25, act: 'desk',
+      name: 'つくえ', tool: 'memo', w: 50, h: 26, act: 'desk',
       key: st => st.memo ? '1' : '0',
       draw(P, st) {
-        P.r(8, 3, 6, 6, C.white).r(15, 3, 6, 6, C.white).r(14, 4, 1, 5, '#d9cfc4');
-        if (st.memo) P.r(9, 5, 4, 1, '#8aa6d6').r(9, 7, 3, 1, '#8aa6d6').r(16, 5, 4, 1, '#8aa6d6').r(16, 7, 2, 1, '#8aa6d6');
-        P.r(24, 7, 6, 1, C.gold).p(30, 7, '#4a3550');
-        P.r(35, 3, 5, 6, C.pinkL).r(40, 4, 1, 3, C.pinkL).r(36, 4, 3, 1, C.white);
-        P.r(0, 9, 48, 3, C.woodL).r(0, 12, 48, 3, C.wood).r(0, 14, 48, 1, C.woodD);
-        P.r(2, 15, 3, 10, C.woodD).r(43, 15, 3, 10, C.woodD);
-        P.r(27, 15, 15, 8, C.wood).r(27, 15, 15, 1, C.woodL).r(32, 18, 5, 1, C.woodDD);
+        P.r(8, 2, 14, 9, '#c9c9cc').r(9, 3, 12, 7, '#2a2d33').r(10, 4, 6, 1, '#4a5a6a').r(6, 11, 18, 1, '#b9b9bd');
+        if (st.memo) P.r(25, 9, 6, 2, N.white).r(26, 9, 4, 1, '#c9c2b4');
+        P.line(38, 11, 35, 5, N.black).line(35, 5, 39, 1, N.black).r(38, 0, 5, 3, N.black).r(37, 11, 3, 1, N.black);
+        P.r(31, 7, 4, 5, N.sageL).r(35, 8, 1, 2, N.sageL);
+        P.r(43, 6, 3, 6, N.white).p(44, 4, N.leaf).p(45, 3, N.leaf);
+        P.r(0, 12, 50, 3, N.oakL).r(0, 14, 50, 1, N.oakD);
+        P.line(4, 15, 2, 25, N.black).line(6, 15, 8, 25, N.black).line(44, 15, 42, 25, N.black).line(46, 15, 48, 25, N.black);
       },
     },
     timer: {
-      name: 'タイマー棚', tool: 'timer', w: 24, h: 25,
-      // 使っていないときは今の時刻、使っているときは残り時間と進み具合のバー
-      key: st => `${st.lcd}:${st.blinkOff ? 1 : 0}:${st.colonOff ? 1 : 0}:${st.mode}:${Math.round((st.prog || 0) * 20)}`,
+      // 使っていないときは今の時刻、使っているときは残り時間と進み具合
+      name: 'タイマー', tool: 'timer', w: 28, h: 24,
+      key: st => `${st.lcd}:${st.blinkOff ? 1 : 0}:${st.colonOff ? 1 : 0}:${st.mode}:${Math.round((st.prog || 0) * 18)}`,
       draw(P, st) {
-        const bg = st.mode === 'break' ? '#bfe3f0' : st.mode === 'work' ? '#ffd6c4' : st.mode === 'clock' ? '#d6e8b8' : '#c4dba3';
-        P.r(1, 0, 22, 10, '#fdfdff').r(1, 0, 22, 1, '#ffffff').r(3, -1, 3, 1, '#ff5a6e').r(18, -1, 3, 1, C.metal);
-        P.r(2, 1, 20, 7, bg);
+        const ink = st.mode === 'work' ? '#b0644a' : st.mode === 'break' ? N.sageD : N.black;
+        P.r(4, 3, 20, 9, N.white).r(5, 4, 18, 7, '#f1efe9');
         if (!st.blinkOff) {
-          const w = textWidth(st.lcd), x = Math.round(12 - w / 2);
-          P.text(x, 2, st.lcd, '#2f3a2a');
-          if (st.colonOff) P.r(x + textWidth(st.lcd.slice(0, 2)) + 1, 2, 1, 5, bg); // 時刻の「:」を点滅
+          const w = textWidth(st.lcd), x = Math.round(14 - w / 2);
+          P.text(x, 5, st.lcd, ink);
+          if (st.colonOff) P.r(x + textWidth(st.lcd.slice(0, 2)) + 1, 5, 1, 5, '#f1efe9');
         }
-        if (st.prog != null) P.r(2, 7, Math.round(20 * st.prog), 1, st.mode === 'break' ? '#5b9bd5' : '#e2475e');
-        P.r(0, 10, 24, 2, C.mintL).r(0, 12, 24, 13, C.mint).r(0, 18, 24, 1, C.mintD);
-        P.r(10, 14, 4, 1, C.mintD).r(10, 21, 4, 1, C.mintD);
-        if (st.mode === 'work' || st.mode === 'break') { // トマト
-          P.ell(4, 15, 2, 2, '#e2475e').p(4, 12, '#3f8c55').p(5, 12, '#3f8c55');
-        }
+        if (st.prog != null) P.r(5, 10, Math.round(18 * st.prog), 1, ink);
+        P.r(0, 12, 28, 2, N.oakL).r(1, 14, 26, 8, N.oak).r(14, 14, 1, 8, N.oakD).r(6, 17, 3, 1, N.oakD).r(19, 17, 3, 1, N.oakD);
+        P.r(2, 22, 2, 2, N.black).r(24, 22, 2, 2, N.black);
       },
     },
     window: {
-      name: 'まど', wall: true, w: 42, h: 36, y: 62, act: 'window',
+      name: 'まど', wall: true, w: 44, h: 40, y: 64, act: 'window',
       key: st => [st.sky.k, st.season, st.weather, (st.weather === 'rain' || st.weather === 'snow' || st.weather === 'cloudy') ? st.frame % 4 : 0].join('|'),
       draw(P, st) {
-        P.r(3, 0, 36, 33, C.white);
-        drawOutside(P, 5, 2, 32, 29, st);
-        P.r(20, 2, 2, 29, C.white).r(5, 15, 32, 2, C.white);
-        P.r(0, 0, 7, 34, C.pink).r(2, 0, 1, 34, C.pinkD).r(5, 0, 1, 34, C.pinkL);
-        P.r(35, 0, 7, 34, C.pink).r(37, 0, 1, 34, C.pinkL).r(39, 0, 1, 34, C.pinkD);
-        P.r(0, 0, 42, 2, C.pinkD);
-        P.r(1, 33, 40, 3, '#efe3d8').r(1, 33, 40, 1, C.white);
+        P.r(4, 0, 36, 36, '#ffffff');
+        drawOutside(P, 6, 2, 32, 32, st);
+        P.r(21, 2, 2, 32, '#ffffff');
+        P.r(0, 0, 7, 38, '#f7f4ee').r(2, 0, 1, 38, '#e6e0d5').r(5, 0, 1, 38, '#e6e0d5');
+        P.r(37, 0, 7, 38, '#f7f4ee').r(39, 0, 1, 38, '#e6e0d5').r(41, 0, 1, 38, '#e6e0d5');
+        P.r(0, 0, 44, 1, N.black);
+        P.r(2, 36, 40, 3, N.oakL).r(2, 38, 40, 1, N.oakD);
       },
     },
     poster: {
-      name: 'ポスター', wall: true, w: 18, h: 24, y: 56,
+      name: 'アートフレーム', wall: true, w: 26, h: 30, y: 54,
       draw(P) {
-        P.r(0, 0, 18, 24, '#fff6e8').r(1, 1, 16, 22, '#bfe3f5');
-        P.ell(12, 6, 2, 2, '#ffd166');
-        P.map(2, 9, ['......xx......', '.....xxxx.....', '....xxyxxx....', '...xxxxxxxx.x.', '..xxxxxxxxxxxx', '.xxxxxxxxxxxxx'], { x: '#7e8fd6', y: '#ffffff' });
-        P.r(1, 15, 16, 8, '#8ecf8a').r(1, 15, 16, 1, '#b6e3a4');
-        P.p(3, 0, '#e0485e').p(14, 0, '#e0485e');
+        P.r(0, 0, 26, 30, N.black).r(2, 2, 22, 26, N.white);
+        P.ell(13, 17, 6, 7, N.sageL).r(7, 17, 13, 9, N.sageL).ell(13, 17, 4, 5, N.white).r(9, 17, 9, 9, N.white);
+        P.ell(16, 8, 2, 2, '#d9b48a').r(4, 25, 18, 1, N.black);
+      },
+    },
+    slat: {
+      name: '木のスラット壁', wall: true, w: 72, h: 80, y: 82,
+      draw(P) {
+        for (let x = 0; x < 72; x += 4) P.r(x, 0, 3, 80, x % 8 ? N.oakL : '#e9d0ae').r(x + 3, 0, 1, 80, N.oakD);
+        P.r(0, 0, 72, 1, N.oakD);
       },
     },
     shelf: {
       name: '本だな', w: 30, h: 50,
       draw(P) {
-        P.r(0, 0, 30, 50, C.wood).r(0, 0, 30, 2, C.woodL).r(2, 3, 26, 45, C.woodDD);
-        const cols = ['#ff8fa8', '#7ec4e8', '#ffd166', '#8fd68a', '#b59ae8', '#ffb37a', '#fff1d6', '#6f8fd6'];
-        [16, 32, 48].forEach((by, r) => {
-          let x = 3, i = r * 3;
-          while (x < 26) {
-            const w = 2 + (i % 2), h = 8 + ((i * 5) % 5);
-            if (x + w > 27) break;
-            P.r(x, by - h, w, h, cols[i % cols.length]).r(x, by - h + 2, w, 1, 'rgba(255,255,255,.45)');
-            x += w + (i % 4 === 3 ? 2 : 0); i++;
-          }
-          if (r < 2) P.r(2, by, 26, 2, C.wood);
-        });
+        P.r(0, 0, 2, 50, N.oak).r(28, 0, 2, 50, N.oak);
+        [0, 16, 32, 48].forEach(y => P.r(0, y, 30, 2, N.oakL));
+        const books = ['#b9b0a2', '#8f9a86', '#d9cdb8', '#6f6a64', '#c9a07a'];
+        [[3, 16, 3, 10], [6, 16, 2, 11], [8, 16, 3, 9], [11, 16, 2, 10], [3, 48, 2, 9], [5, 48, 3, 11], [8, 48, 2, 10]].forEach(([x, by, w, h], i) => P.r(x, by - h, w, h, books[i % books.length]));
+        P.r(20, 9, 5, 7, N.ceramic).r(21, 6, 3, 3, N.ceramic).p(22, 4, N.leaf).p(23, 3, N.leaf).p(21, 3, N.leafD);
+        P.r(4, 27, 9, 5, N.clay).r(4, 27, 9, 1, '#d9b48a');
+        P.ell(21, 29, 3, 3, N.leaf).r(19, 29, 5, 3, N.ceramic);
+        P.r(18, 40, 8, 8, N.linenD).r(18, 40, 8, 1, N.linen);
       },
     },
     plant: {
-      name: '観葉植物', w: 16, h: 26,
+      name: '観葉植物', w: 20, h: 50,
       draw(P) {
-        P.ell(4, 9, 3, 6, C.leafD).ell(11, 8, 3, 6, C.leafD);
-        P.ell(8, 6, 3, 7, C.leaf).ell(3, 13, 3, 3, C.leaf).ell(13, 13, 3, 3, C.leaf);
-        P.p(7, 3, C.leafL).p(7, 4, C.leafL).p(3, 12, C.leafL).p(12, 12, C.leafL);
-        P.r(7, 12, 2, 6, C.leafD);
-        P.r(2, 17, 12, 2, C.potL).r(3, 19, 10, 7, C.pot).r(4, 21, 8, 1, C.potL);
+        P.r(9, 14, 1, 24, N.leafD);
+        [[5, 8], [14, 6], [4, 20], [15, 18], [9, 3], [7, 28], [13, 27]].forEach(([x, y]) => P.ell(x, y, 4, 4, (x + y) % 2 ? N.leaf : N.leafD));
+        P.p(9, 2, N.leafL).p(4, 19, N.leafL).p(14, 5, N.leafL);
+        P.r(3, 37, 14, 13, N.ceramic).r(3, 37, 14, 2, N.ceramicD).r(4, 47, 12, 2, N.ceramicD);
       },
     },
     lamp: {
-      name: 'ランプ', toggle: true, w: 13, h: 44,
+      name: 'フロアランプ', toggle: true, w: 16, h: 52,
       key: st => st.on ? '1' : '0',
       draw(P, st) {
-        P.r(2, 0, 9, 2, st.on ? '#fff3c4' : '#efe2c8').r(1, 2, 11, 3, st.on ? '#ffe99a' : '#e6d6b8').r(0, 5, 13, 4, st.on ? '#ffd970' : '#d9c6a3');
-        P.r(0, 8, 13, 1, st.on ? '#f2b84f' : '#c4ae88');
-        P.r(6, 9, 1, 32, C.metal).r(2, 41, 9, 3, C.metal).r(3, 41, 7, 1, C.metalL);
+        P.r(2, 0, 12, 10, st.on ? '#fff6e0' : '#f4efe4').r(2, 9, 12, 1, st.on ? '#f0dcb0' : '#e2d9c6');
+        P.line(8, 10, 3, 51, N.oakD).line(8, 10, 13, 51, N.oakD).line(8, 10, 8, 51, N.oakD);
       },
     },
     rug: {
-      name: 'ラグ', flat: true, w: 64, h: 9,
-      draw(P) { P.ell(32, 4, 31, 4, C.pinkL).ell(32, 4, 25, 3, C.pink).ell(32, 4, 18, 2, C.pinkL).ell(32, 4, 10, 1, '#fff0f4'); },
+      name: 'ラグ', flat: true, w: 74, h: 9,
+      draw(P) { for (let y = 0; y < 9; y++) { const o = 8 - y; P.r(o, y, 64, 1, '#ebe6dc'); if (y === 2 || y === 6) P.r(o + 2, y, 60, 1, '#cfc7b8'); } },
     },
     cat: {
       name: 'ねこ', w: 16, h: 9, act: 'pet',
       key: st => st.blink ? '1' : '0',
       draw(P, st) {
         P.map(0, 0, ['.o.o............', '.ooo............', 'oeoeo...oooooo..', 'ooxoo.oooooooooo', '.ooooooooooooo.o', '..oooooooooooo.o', '..ooooooooooooo.', '...wwo....ow.ww.'],
-          { o: '#f3b26b', e: st.blink ? '#f3b26b' : OUTLINE, x: '#ff8fa8', w: '#fff3e2' });
-        P.r(9, 3, 5, 1, '#e39a52').r(10, 5, 4, 1, '#e39a52');
+          { o: '#e8c49a', e: st.blink ? '#e8c49a' : N.black, x: '#d9a08a', w: '#fbf6ee' });
+        P.r(9, 3, 5, 1, '#d4a878').r(10, 5, 4, 1, '#d4a878');
       },
     },
     bed: {
-      name: 'ベッド', w: 52, h: 26, act: 'bed',
+      name: 'ベッド', w: 54, h: 24, act: 'bed',
       key: st => st.sleep ? 'z' + st.hairColor : '-',
       draw(P, st) {
-        P.r(1, 0, 4, 2, C.wood).r(0, 2, 6, 24, C.wood).r(1, 3, 4, 2, C.woodL);
-        P.r(47, 9, 5, 17, C.wood).r(48, 10, 3, 2, C.woodL);
-        P.r(5, 13, 43, 5, '#ffffff').r(5, 18, 43, 4, C.woodD).r(6, 22, 3, 4, C.woodDD).r(43, 22, 3, 4, C.woodDD);
-        P.r(7, 8, 12, 6, '#ffffff').r(7, 12, 12, 2, '#e8e0ee');
+        P.r(0, 2, 5, 22, N.oak).r(0, 2, 5, 1, N.oakL);
+        P.r(4, 12, 48, 5, N.white).r(4, 17, 48, 3, N.oakL).r(4, 19, 48, 1, N.oakD).r(6, 20, 2, 4, N.black).r(48, 20, 2, 4, N.black);
+        P.r(6, 7, 12, 6, N.white).r(6, 11, 12, 2, N.linenD).r(9, 8, 10, 5, N.linenL);
         const by = st.sleep ? 8 : 11;
-        P.r(17, by, 31, 19 - by, C.pink).r(17, by, 3, 19 - by, C.pinkL);
-        for (let x = 23; x < 46; x += 6) P.p(x, by + 3, C.pinkL).p(x + 3, by + 6 > 17 ? 17 : by + 6, C.pinkL);
+        P.r(16, by, 36, 17 - by, N.linen).r(16, by, 36, 1, N.linenL).r(38, by, 14, 17 - by, N.sageL).r(38, by, 1, 17 - by, N.sage);
         if (st.sleep) {
           const hc = HAIR_COLORS[st.hairColor] || HAIR_COLORS.brown;
-          P.map(6, 3, SLEEP_HEAD, { h: hc.h, H: hc.H, s: '#ffe6d6', e: '#3b2a5c', c: '#ffa3b5' });
-          P.r(17, 7, 31, 1, C.pinkD);
+          P.map(5, 2, SLEEP_HEAD, { h: hc.h, H: hc.H, s: '#ffe6d6', e: '#3b2a5c', c: '#ffa3b5' });
+          P.r(16, 7, 36, 1, N.linenD);
         }
       },
     },
     sofa: {
-      name: 'ソファ', w: 44, h: 22, act: 'sofa',
+      name: 'ソファ', w: 52, h: 22, act: 'sofa',
       draw(P) {
-        P.r(4, 0, 36, 11, '#7fc8b0').r(4, 0, 36, 2, '#a8e0cc').r(21, 2, 1, 8, '#6ab39b');
-        P.r(0, 6, 7, 12, '#6ab39b').r(0, 6, 7, 2, '#a8e0cc').r(37, 6, 7, 12, '#6ab39b').r(37, 6, 7, 2, '#a8e0cc');
-        P.r(7, 10, 30, 5, '#a8e0cc').r(21, 10, 1, 5, '#7fc8b0');
-        P.r(2, 15, 40, 4, '#5a9f88').r(4, 19, 2, 3, C.woodDD).r(38, 19, 2, 3, C.woodDD);
-        P.r(9, 5, 7, 6, C.pinkL).r(10, 6, 5, 1, '#ffffff');
+        P.r(2, 3, 48, 9, N.linen).r(2, 3, 48, 1, N.linenL).r(0, 7, 4, 10, N.linenD).r(48, 7, 4, 10, N.linenD);
+        P.r(4, 11, 44, 5, N.linenL).r(26, 11, 1, 5, N.linenD).r(2, 16, 48, 3, N.linenD).r(5, 19, 2, 3, N.oakD).r(45, 19, 2, 3, N.oakD);
+        P.r(8, 6, 8, 6, N.sageL).r(9, 7, 6, 1, '#ffffff').r(36, 7, 7, 5, N.oakL);
       },
     },
     tv: {
-      name: 'テレビ', toggle: true, w: 32, h: 32,
+      name: 'テレビ', toggle: true, w: 40, h: 30,
       key: st => st.on ? 'on' + (st.frame % 4) : 'off',
       draw(P, st) {
-        P.r(3, 1, 26, 18, '#4a4458').r(4, 2, 24, 16, '#5b5068');
+        P.r(4, 0, 32, 18, N.black);
         if (st.on) {
           const f = st.frame % 4;
-          P.r(5, 3, 22, 14, '#9fd8f5').r(5, 13, 22, 4, '#8fd68a');
-          P.ell(10 + f * 3, 11 - (f % 2) * 2, 2, 2, '#ff6f91');
-          P.ell(22, 6, 2, 2, '#ffe07a');
-          P.r(5, 3, 22, 1, 'rgba(255,255,255,.4)');
-        } else {
-          P.r(5, 3, 22, 14, '#2b2a3a').r(7, 5, 3, 1, '#4a4a64').r(7, 6, 1, 2, '#4a4a64');
-        }
-        P.r(14, 19, 4, 2, '#4a4458');
-        P.r(0, 21, 32, 11, C.wood).r(0, 21, 32, 2, C.woodL).r(15, 23, 1, 9, C.woodD).r(6, 26, 4, 1, C.woodDD).r(22, 26, 4, 1, C.woodDD);
+          P.r(5, 1, 30, 16, '#bcd9e8').r(5, 11, 30, 6, '#a9c3a0').ell(12 + f * 4, 10, 2, 2, '#e8c9a0').r(5, 1, 30, 1, 'rgba(255,255,255,.4)');
+        } else P.r(5, 1, 30, 16, '#3a3d42').r(7, 3, 4, 1, '#4c5056');
+        P.r(18, 18, 4, 2, N.black);
+        P.r(0, 20, 40, 2, N.oakL).r(1, 22, 38, 6, N.oak).r(20, 22, 1, 6, N.oakD).r(3, 28, 2, 2, N.black).r(35, 28, 2, 2, N.black);
       },
     },
     radio: {
-      name: 'ラジオ', tool: 'bgm', w: 22, h: 26,
+      name: 'ラジオ', tool: 'bgm', w: 20, h: 26,
       key: st => st.on ? 'on' : 'off',
       draw(P, st) {
-        P.line(16, 0, 19, -2, C.metal);
-        P.r(3, 1, 16, 10, '#ff9fb6').r(3, 1, 16, 1, '#ffc9d6');
-        for (let y = 3; y < 10; y += 2) for (let x = 5; x < 12; x += 2) P.p(x, y, '#e57a96');
-        P.r(13, 3, 4, 4, '#fff6e8').p(15, 4, st.on ? '#e2475e' : C.metal);
-        P.r(13, 8, 4, 1, st.on ? '#8fd68a' : '#c9a0ad');
-        P.r(0, 11, 22, 2, C.woodL).r(1, 13, 20, 1, C.wood);
-        P.r(2, 14, 2, 12, C.woodD).r(18, 14, 2, 12, C.woodD).r(2, 20, 18, 2, C.wood);
+        P.r(2, 3, 16, 10, N.oak).r(2, 3, 16, 1, N.oakL).r(4, 5, 8, 6, N.linenD);
+        for (let y = 6; y < 11; y += 2) P.r(4, y, 8, 1, N.linen);
+        P.ell(15, 7, 1, 1, N.black).r(14, 10, 3, 1, st.on ? N.sageD : N.grey);
+        P.r(1, 13, 18, 2, N.black).line(3, 15, 2, 25, N.black).line(17, 15, 18, 25, N.black).line(10, 15, 10, 25, N.black);
       },
     },
     calendar: {
-      name: 'カレンダー', tool: 'calendar', wall: true, w: 18, h: 22, y: 54,
+      name: 'カレンダー', tool: 'calendar', wall: true, w: 16, h: 20, y: 56,
       key: st => `${st.month}/${st.day}/${st.event ? 1 : 0}`,
       draw(P, st) {
-        P.r(0, 0, 18, 22, '#ffffff').r(0, 0, 18, 6, '#ff6f91').p(4, -1, C.metal).p(13, -1, C.metal);
+        P.r(0, 0, 16, 20, N.white).r(0, 0, 16, 4, N.black).p(4, -1, N.black).p(11, -1, N.black);
         const m = String(st.month), dd = String(st.day);
-        P.text(Math.round(9 - textWidth(m) / 2), 1, m, '#ffffff');
-        P.text(Math.round(9 - textWidth(dd, 2) / 2), 8, dd, OUTLINE, 2);
-        if (st.event) P.r(14, 18, 2, 2, C.red);
-        P.r(0, 21, 18, 1, '#e8e0ee');
+        P.text(Math.round(8 - textWidth(m) / 2), 5, m, N.grey);
+        P.text(Math.round(8 - textWidth(dd, 2) / 2), 10, dd, N.black, 2);
+        if (st.event) P.r(13, 17, 2, 2, N.sageD);
       },
     },
     water: {
-      name: 'ウォーターサーバー', tool: 'remind', w: 14, h: 36,
+      name: '水差し', tool: 'remind', w: 14, h: 30,
       draw(P) {
-        P.r(3, 0, 8, 2, '#5b9bd5').r(2, 2, 10, 10, '#9fd8f5').r(3, 3, 2, 7, '#d4f0ff');
-        P.r(1, 12, 12, 24, '#f4f7fb').r(1, 12, 12, 1, '#ffffff');
-        P.r(3, 16, 3, 2, '#e2475e').r(8, 16, 3, 2, '#5b9bd5');
-        P.r(3, 22, 8, 6, '#dfe7f2').r(4, 27, 6, 1, C.steelD);
-        P.r(1, 34, 12, 2, C.steel);
+        P.r(3, 0, 6, 2, '#d8e8ee').r(2, 2, 8, 9, '#d8e8ee').r(3, 5, 6, 6, '#bcd9e8').r(3, 3, 1, 6, '#ffffff').r(10, 3, 2, 4, '#d8e8ee');
+        P.r(10, 7, 3, 4, '#e9f3f6');
+        P.r(0, 11, 14, 2, N.oakL).r(1, 13, 12, 1, N.oakD).line(2, 14, 1, 29, N.oak).line(11, 14, 12, 29, N.oak).r(2, 22, 10, 1, N.oak);
       },
     },
     closet: {
       name: 'クローゼット', tool: 'dress', w: 32, h: 54,
       draw(P) {
-        P.r(0, 2, 32, 52, '#fff0f4').r(0, 0, 32, 3, C.pinkD).r(1, 1, 30, 1, C.pink);
-        P.r(2, 5, 13, 45, '#ffe3ea').r(17, 5, 13, 45, '#ffe3ea');
-        P.r(4, 8, 9, 12, '#fff6f9').r(19, 8, 9, 12, '#fff6f9').r(4, 24, 9, 22, '#fff6f9').r(19, 24, 9, 22, '#fff6f9');
-        P.r(13, 27, 1, 3, C.gold).r(18, 27, 1, 3, C.gold);
-        P.r(1, 50, 30, 2, C.pinkD).r(2, 52, 3, 2, C.woodD).r(27, 52, 3, 2, C.woodD);
+        P.r(0, 0, 32, 50, N.oak).r(0, 0, 32, 2, N.oakL);
+        P.r(2, 3, 13, 45, N.oakL).r(17, 3, 13, 45, N.oakL).r(15, 3, 2, 45, N.oakD);
+        P.r(12, 22, 1, 8, N.black).r(19, 22, 1, 8, N.black);
+        P.r(2, 50, 2, 4, N.black).r(28, 50, 2, 4, N.black);
       },
     },
     trophy: {
-      name: 'トロフィー棚', tool: 'stats', wall: true, w: 28, h: 19, y: 50,
+      name: 'かざり棚', tool: 'stats', wall: true, w: 30, h: 19, y: 50,
       key: st => String(st.tier),
       draw(P, st) {
-        P.r(0, 15, 28, 3, C.wood).r(0, 15, 28, 1, C.woodL).r(3, 18, 2, 1, C.woodD).r(23, 18, 2, 1, C.woodD);
-        const cup = (x, col, colL, big) => {
-          const h = big ? 1 : 0;
-          P.r(x, 3 - h, 7, 5 + h, col).r(x + 1, 3 - h, 2, 3, colL).p(x - 1, 4, col).p(x + 7, 4, col).p(x - 1, 5, col).p(x + 7, 5, col);
-          P.r(x + 3, 8, 1, 3, col).r(x + 1, 11, 5, 4, col).r(x + 2, 12, 3, 1, colL);
-        };
-        if (st.tier >= 1) cup(2, '#d08a4f', '#f0b07a');
-        if (st.tier >= 3) cup(10, '#ffd166', '#fff0b0', true);
-        if (st.tier >= 2) cup(19, '#c9d3df', '#ffffff');
-        if (st.tier === 0) { P.r(11, 9, 6, 6, '#ffd166').p(13, 7, '#ffd166').p(14, 8, '#ffd166'); }
+        P.r(0, 16, 30, 3, N.oakL).r(0, 18, 30, 1, N.oakD);
+        P.r(3, 9, 5, 7, N.ceramic).r(4, 6, 3, 3, N.ceramic).p(5, 4, N.leaf).p(6, 3, N.leaf);
+        if (st.tier >= 1) P.r(10, 8, 7, 8, N.sageL).r(10, 8, 7, 1, N.sage).r(11, 11, 5, 1, N.white);
+        if (st.tier >= 2) P.r(19, 10, 3, 6, '#b9a27a').r(18, 9, 5, 1, '#b9a27a');
+        if (st.tier >= 3) { P.r(24, 3, 5, 5, '#c9a95a').r(25, 8, 3, 3, '#c9a95a').r(23, 14, 7, 2, '#c9a95a').p(25, 4, '#f0dca0'); }
       },
     },
     door: {
       name: 'ドア', tool: 'door', w: 24, h: 54,
       key: st => st.to,
       draw(P, st) {
-        P.r(0, 0, 24, 54, C.woodD).r(2, 2, 20, 52, C.wood);
-        P.r(4, 18, 16, 14, C.woodL).r(4, 35, 16, 16, C.woodL);
-        P.r(5, 5, 14, 10, '#ffffff').r(5, 5, 14, 1, '#f1d9e1');
-        if (st.to === 'kitchen') { P.r(8, 9, 8, 4, '#e2475e').r(7, 8, 10, 1, '#e2475e').r(11, 7, 2, 1, OUTLINE); }
-        else { P.map(8, 7, ['.xx.xx.', 'xxxxxxx', '.xxxxx.', '..xxx..', '...x...'], { x: '#ff6f91' }); }
-        P.r(17, 33, 2, 2, C.gold);
+        P.r(0, 0, 24, 54, N.oak).r(2, 2, 20, 52, N.white).r(2, 2, 20, 1, '#ece8e0');
+        P.r(17, 30, 3, 1, N.black).r(17, 31, 1, 2, N.black);
+        P.r(7, 10, 10, 7, N.black);
+        if (st.to === 'kitchen') P.r(9, 12, 5, 4, N.white).r(14, 13, 1, 2, N.white);
+        else P.map(9, 11, ['..x..', '.xxx.', 'xxxxx', '.x.x.'], { x: N.white });
       },
     },
     fridge: {
       name: '冷蔵庫', w: 22, h: 46,
       draw(P) {
-        P.r(0, 0, 22, 46, '#f4f7fb').r(0, 0, 22, 1, '#ffffff');
-        P.r(0, 15, 22, 1, C.steel).r(18, 5, 2, 7, C.steelD).r(18, 19, 2, 12, C.steelD);
-        P.map(4, 5, ['.x.x.', 'xxxxx', '.xxx.', '..x..'], { x: '#ff6f91' });
-        P.r(5, 22, 6, 6, '#ffe58a').r(6, 24, 4, 1, 'rgba(0,0,0,.2)');
-        P.r(0, 44, 22, 2, C.steel);
+        P.r(0, 0, 22, 46, '#f4f3f0').r(0, 0, 22, 1, '#ffffff');
+        P.r(0, 15, 22, 1, '#d9d6cf').r(18, 5, 1, 7, N.black).r(18, 19, 1, 12, N.black);
+        P.r(5, 22, 6, 7, N.white).r(6, 24, 4, 1, '#c9c2b4').p(8, 22, N.sageD);
+        P.r(0, 44, 22, 2, '#d9d6cf');
       },
     },
     counter: {
       name: 'キッチン台', w: 56, h: 30,
       draw(P) {
-        P.r(12, 1, 2, 7, C.steelD).r(12, 1, 6, 2, C.steelD);
-        P.r(34, 2, 9, 5, '#e2475e').r(33, 1, 11, 1, '#c9374e').r(37, 0, 3, 1, OUTLINE).r(35, 3, 2, 1, '#ff8f9f');
-        P.r(0, 7, 56, 3, C.steel).r(4, 7, 16, 1, C.steelD).r(32, 7, 12, 1, '#4a4458').r(46, 7, 7, 1, '#4a4458');
-        P.r(0, 10, 56, 20, '#fff6ea').r(0, 10, 56, 1, '#ffffff');
-        P.r(2, 12, 24, 16, '#ffe9d1').r(28, 12, 26, 16, '#ffe9d1');
-        P.r(23, 18, 2, 4, C.woodD).r(30, 18, 2, 4, C.woodD);
-        P.r(34, 11, 2, 1, '#e2475e').r(40, 11, 2, 1, '#e2475e');
+        P.r(12, 1, 1, 7, N.black).r(12, 1, 5, 1, N.black);
+        P.r(34, 2, 9, 5, N.white).r(33, 1, 11, 1, '#d9d6cf').r(37, 0, 3, 1, N.black).r(43, 3, 2, 1, N.black);
+        P.r(0, 7, 56, 3, N.oakL).r(0, 9, 56, 1, N.oakD).r(4, 7, 16, 1, '#c9c5be').r(32, 7, 12, 1, N.black).r(46, 7, 7, 1, N.black);
+        P.r(0, 10, 56, 20, N.white).r(1, 11, 26, 18, '#f4f1ea').r(29, 11, 26, 18, '#f4f1ea');
+        P.r(24, 18, 1, 4, N.black).r(31, 18, 1, 4, N.black);
       },
     },
     table: {
       name: 'テーブル', w: 40, h: 24,
       draw(P) {
-        P.r(17, 4, 5, 6, '#9fd8f5').r(18, 5, 1, 3, '#d4f0ff');
-        P.p(17, 1, '#ff6f91').p(19, 0, '#ffd166').p(21, 1, '#ff6f91').r(19, 1, 1, 3, C.leafD).p(18, 2, C.leafD).p(20, 2, C.leafD);
-        P.r(0, 10, 40, 3, C.woodL).r(0, 13, 40, 2, C.wood);
-        P.r(3, 15, 3, 9, C.woodD).r(34, 15, 3, 9, C.woodD);
-        P.r(5, 9, 6, 1, '#ffffff').r(28, 9, 6, 1, '#ffffff');
+        P.r(17, 4, 5, 6, N.ceramic).r(18, 5, 1, 3, '#ffffff').line(19, 4, 16, 0, N.oakD).line(19, 4, 22, 1, N.oakD).p(16, 0, N.leaf).p(22, 1, N.leaf).p(18, 1, N.leaf);
+        P.r(0, 10, 40, 2, N.oakL).r(0, 12, 40, 1, N.oakD);
+        P.line(4, 13, 3, 23, N.oak).line(36, 13, 37, 23, N.oak);
+        P.r(6, 9, 6, 1, N.white).r(28, 9, 6, 1, N.white);
       },
     },
     fishbowl: {
@@ -719,17 +691,15 @@
 
   /* ---------- 壁紙と床 ---------- */
   const WALLS = {
-    pink: { name: 'ピンクのしましま', tw: 60, draw(P) {
-      P.r(0, 0, 60, BACK, '#fbe4ea');
-      for (let x = 0; x < 60; x += 12) P.r(x, 4, 6, 52, '#f6d6df');
-      P.r(0, 0, 60, 4, '#eec3cf').r(0, 56, 60, 2, '#a7d8c2').r(0, 58, 60, BACK - 62, '#c9ead9');
-      for (let x = 4; x < 60; x += 20) P.r(x, 61, 12, BACK - 68, '#dff4ea');
-      P.r(0, BACK - 4, 60, 4, '#9a6a7a');
+    natural: { name: 'ナチュラルホワイト', tw: 12, draw(P) {
+      P.r(0, 0, 12, BACK, '#f2eee7');
+      for (let y = 3; y < BACK - 6; y += 6) P.p((y / 6) % 2 ? 3 : 9, y, '#ebe5db');
+      P.r(0, BACK - 3, 12, 3, '#d8c3a5').r(0, BACK - 3, 12, 1, '#e6d4b8');
     } },
     mint: { name: 'ミントの水玉', tw: 20, draw(P) {
       P.r(0, 0, 20, BACK, '#e3f6ee');
       for (let y = 8; y < 52; y += 10) P.r(((y / 10) % 2 ? 4 : 14), y, 2, 2, '#bfe7d6');
-      P.r(0, 0, 20, 4, '#c6eedf').r(0, 56, 20, 2, '#f3b6c6').r(0, 58, 20, BACK - 62, '#fbe4ea').r(4, 61, 12, BACK - 68, '#fff0f4');
+      P.r(0, 0, 20, 4, '#c6eedf').r(0, 56, 20, 2, '#d8c3a5').r(0, 58, 20, BACK - 62, '#f6f3ee').r(4, 61, 12, BACK - 68, '#fbfaf7');
       P.r(0, BACK - 4, 20, 4, '#6f9d8c');
     } },
     flower: { name: 'クリームの花がら', tw: 32, draw(P) {
@@ -762,17 +732,17 @@
     } },
   };
   const FLOORS = {
+    oak: { name: 'オークの床', kind: 'planks', bw: 11, a: '#dcc3a0', b: '#d3b893', seam: '#c2a47d' },
     wood: { name: '木の床', kind: 'boards', bw: 16, a: '#d59a6a', b: '#c98d5e', seam: '#a96f45' },
     dark: { name: 'こげ茶の床', kind: 'boards', bw: 16, a: '#8e5638', b: '#7d4a30', seam: '#5e3522' },
     tile: { name: 'タイル', kind: 'checker', bw: 16, a: '#f6f1ea', b: '#d9e6ee', seam: '#b9c8d4' },
     tatami: { name: 'たたみ', kind: 'boards', bw: 32, a: '#cfd49a', b: '#c3c98c', seam: '#6d7a3a' },
-    carpet: { name: 'ピンクのじゅうたん', kind: 'plain', bw: 16, a: '#f3b6c6', b: '#f9cdd8', seam: '#e59aae' },
   };
   const wallCache = new Map();
   function wallTile(key) {
     let c = wallCache.get(key);
     if (!c) {
-      const w = WALLS[key] || WALLS.pink;
+      const w = WALLS[key] || WALLS.natural;
       c = canvas(w.tw, BACK);
       w.draw(painter(c.getContext('2d')));
       wallCache.set(key, c);

@@ -20,46 +20,48 @@
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
   const ROOMS = { main: { name: 'へや', w: 720 }, kitchen: { name: 'キッチン', w: 420 }, shop: { name: 'おみせ', w: 800 } };
-  const SIDE = { shop: '#e8dccb', pink: '#efcdd7', mint: '#cdeadf', flower: '#f0e2c8', wood: '#c4925f', wa: '#e2d1ad', stars: '#1f2448', luxe: '#f3e6e2', brick: '#9e5340', china: '#a51c30' };
+  const SIDE = { natural: '#e8e2d8', shop: '#e8dccb', pink: '#efcdd7', mint: '#cdeadf', flower: '#f0e2c8', wood: '#c4925f', wa: '#e2d1ad', stars: '#1f2448', luxe: '#f3e6e2', brick: '#9e5340', china: '#a51c30' };
 
   /* ---------- 保存 ---------- */
   const KEY = 'heya:v3';
   const defaultItems = () => [
-    // へや
+    // へや（ナチュラルミニマル）
+    { id: 22, room: 'main', type: 'slat', x: 208, y: 82 },
     { id: 1, room: 'main', type: 'door', x: 22, d: 0.02 },
-    { id: 2, room: 'main', type: 'shelf', x: 60, d: 0.03 },
-    { id: 3, room: 'main', type: 'window', x: 112, y: 62 },
-    { id: 4, room: 'main', type: 'lamp', x: 150, d: 0.05, on: true },
-    { id: 5, room: 'main', type: 'desk', x: 205, d: 0.05 },
-    { id: 6, room: 'main', type: 'clock', x: 205, y: 34 },
-    { id: 7, room: 'main', type: 'board', x: 266, y: 56 },
-    { id: 8, room: 'main', type: 'calendar', x: 300, y: 54 },
-    { id: 9, room: 'main', type: 'timer', x: 276, d: 0.05 },
-    { id: 10, room: 'main', type: 'water', x: 310, d: 0.04 },
-    { id: 11, room: 'main', type: 'rug', x: 400, d: 0.45 },
-    { id: 12, room: 'main', type: 'sofa', x: 385, d: 0.06 },
-    { id: 13, room: 'main', type: 'poster', x: 385, y: 48 },
-    { id: 14, room: 'main', type: 'tv', x: 446, d: 0.1 },
-    { id: 15, room: 'main', type: 'cat', x: 425, d: 0.56 },
-    { id: 16, room: 'main', type: 'radio', x: 500, d: 0.05 },
-    { id: 17, room: 'main', type: 'trophy', x: 500, y: 52 },
-    { id: 18, room: 'main', type: 'closet', x: 552, d: 0.03 },
-    { id: 19, room: 'main', type: 'bed', x: 632, d: 0.06 },
-    { id: 20, room: 'main', type: 'window', x: 642, y: 56 },
-    { id: 21, room: 'main', type: 'plant', x: 692, d: 0.55 },
+    { id: 2, room: 'main', type: 'shelf', x: 58, d: 0.03 },
+    { id: 21, room: 'main', type: 'plant', x: 86, d: 0.06 },
+    { id: 3, room: 'main', type: 'window', x: 126, y: 64 },
+    { id: 5, room: 'main', type: 'desk', x: 208, d: 0.05 },
+    { id: 6, room: 'main', type: 'clock', x: 208, y: 34 },
+    { id: 4, room: 'main', type: 'lamp', x: 166, d: 0.06, on: true },
+    { id: 7, room: 'main', type: 'board', x: 268, y: 58 },
+    { id: 8, room: 'main', type: 'calendar', x: 296, y: 56 },
+    { id: 9, room: 'main', type: 'timer', x: 282, d: 0.05 },
+    { id: 10, room: 'main', type: 'water', x: 314, d: 0.05 },
+    { id: 13, room: 'main', type: 'poster', x: 392, y: 52 },
+    { id: 11, room: 'main', type: 'rug', x: 400, d: 0.5 },
+    { id: 12, room: 'main', type: 'sofa', x: 392, d: 0.07 },
+    { id: 15, room: 'main', type: 'cat', x: 430, d: 0.58 },
+    { id: 14, room: 'main', type: 'tv', x: 458, d: 0.1 },
+    { id: 17, room: 'main', type: 'trophy', x: 512, y: 52 },
+    { id: 16, room: 'main', type: 'radio', x: 512, d: 0.05 },
+    { id: 18, room: 'main', type: 'closet', x: 556, d: 0.03 },
+    { id: 20, room: 'main', type: 'window', x: 640, y: 60 },
+    { id: 19, room: 'main', type: 'bed', x: 636, d: 0.06 },
+    { id: 23, room: 'main', type: 'plant', x: 698, d: 0.06 },
     // キッチン
     { id: 30, room: 'kitchen', type: 'door', x: 24, d: 0.02 },
     { id: 31, room: 'kitchen', type: 'fridge', x: 64, d: 0.03 },
     { id: 32, room: 'kitchen', type: 'counter', x: 126, d: 0.04 },
-    { id: 33, room: 'kitchen', type: 'window', x: 126, y: 50 },
+    { id: 33, room: 'kitchen', type: 'window', x: 126, y: 52 },
     { id: 34, room: 'kitchen', type: 'table', x: 236, d: 0.3 },
     { id: 35, room: 'kitchen', type: 'plant', x: 300, d: 0.05 },
     { id: 36, room: 'kitchen', type: 'shelf', x: 360, d: 0.03 },
   ];
   const DEFAULT = {
-    ver: 3,
+    ver: 5,
     room: 'main',
-    rooms: { main: { wall: 'pink', floor: 'wood', cam: 140 }, kitchen: { wall: 'mint', floor: 'tile', cam: 30 }, shop: { wall: 'shop', floor: 'wood', cam: 0 } },
+    rooms: { main: { wall: 'natural', floor: 'oak', cam: 120 }, kitchen: { wall: 'natural', floor: 'tile', cam: 30 }, shop: { wall: 'shop', floor: 'wood', cam: 0 } },
     home: 'main',
     items: defaultItems(),
     nextId: 100,
@@ -105,6 +107,20 @@
   for (const k of ['rooms', 'pomo', 'remind', 'bgm', 'look', 'stats', 'ui', 'login']) S[k] = Object.assign(JSON.parse(JSON.stringify(DEFAULT[k])), S[k] || {});
   S.items = S.items.filter(i => (TYPES[i.type] || i.type === 'box') && ROOMS[i.room] && !i.trial);
   if (!ROOMS[S.room]) S.room = 'main';
+  // ピンクの部屋 → ナチュラルミニマルへ（v5）
+  if ((S.ver || 0) < 5) {
+    const m = S.rooms.main, k = S.rooms.kitchen;
+    if (!m.wall || m.wall === 'pink') m.wall = 'natural';
+    if (!m.floor || m.floor === 'wood' || m.floor === 'carpet') m.floor = 'oak';
+    if (k.wall === 'mint') k.wall = 'natural';
+    if (k.floor === 'carpet') k.floor = 'tile';
+    if (!S.items.some(i => i.type === 'slat')) {
+      const desk = S.items.find(i => i.type === 'desk' && i.room === 'main');
+      S.nextId = Math.max(S.nextId || 100, 100);
+      S.items.unshift({ id: S.nextId++, room: 'main', type: 'slat', x: desk ? desk.x : 208, y: 82 });
+    }
+    S.ver = 5;
+  }
   if (!S.memos.length) S.memos = [{ id: 1, text: '' }];
   let saveT = 0;
   const save = () => {
@@ -482,7 +498,7 @@
     const g = ctx;
     const frame = Math.floor(now / 250);
     g.imageSmoothingEnabled = false;
-    g.fillStyle = '#2b1d2e'; g.fillRect(0, 0, vw, H);
+    g.fillStyle = '#2a2724'; g.fillRect(0, 0, vw, H);
 
     const L0 = sx(0, 0), R0 = sx(W, 0), L1 = sx(0, 1), R1 = sx(W, 1);
     // お店はコーナーごとに壁紙と床が変わる
@@ -518,16 +534,17 @@
           if (F.kind === 'boards') col = i % 2 ? F.a : F.b;
           else if (F.kind === 'checker') col = (i + band) % 2 ? F.a : F.b;
           else if (F.kind === 'herring') col = (i + Math.floor((y - BACK) / 2)) % 2 ? F.a : F.b;
+          else if (F.kind === 'planks') { const row = Math.floor((y - BACK) / 9); col = ((i * 7 + row * 3) % 5 + 5) % 5 < 2 ? F.b : F.a; if ((y - BACK) % 9 === 0 && ((i + row) % 3 + 3) % 3 === 0) col = F.seam; }
           g.fillStyle = col; g.fillRect(a, y, b - a, 1);
           if (F.kind !== 'plain') { g.fillStyle = F.seam; g.fillRect(a, y, 1, 1); }
           else if ((i * 7 + y * 3) % 13 === 0) { g.fillStyle = F.b; g.fillRect(Math.round((a + b) / 2), y, 1, 1); }
         }
       }
-      if (F.kind !== 'plain') for (const d of [0.25, 0.55, 0.85]) { const y = floorY(d); g.fillStyle = F.seam; g.fillRect(sx(sg.x0, d), y, sx(sg.x1, d) - sx(sg.x0, d), 1); }
+      if (F.kind !== 'plain' && F.kind !== 'planks') for (const d of [0.25, 0.55, 0.85]) { const y = floorY(d); g.fillStyle = F.seam; g.fillRect(sx(sg.x0, d), y, sx(sg.x1, d) - sx(sg.x0, d), 1); }
       // コーナーの境目の柱
       if (sg.x0 > 0) { g.fillStyle = '#8e5638'; g.fillRect(a0 - 2, 0, 4, BACK); g.fillStyle = '#b9774e'; g.fillRect(a0 - 1, 0, 1, BACK); }
     }
-    g.fillStyle = '#9a6a7a';
+    g.fillStyle = '#c2a47d';
     for (let y = BACK; y < H; y++) {
       const d = (y - BACK) / DEPTH_PX;
       if (L0 > 0) g.fillRect(sx(0, d) - 2, y, 2, 1);
