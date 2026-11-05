@@ -88,6 +88,7 @@
     owned: {},        // 買った物 { 'fur:neon': 1, 'outfit:frill': 1, ... }（家具は持っている数）
     wish: [],         // ほしいもの（先頭が目標）
     love: 0,          // なかよし度
+    light: { on: true, warm: false }, // 部屋の電気（上のバーのスイッチ）と、明かりの色
   };
   const read = k => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
   let S = read(KEY);
@@ -104,7 +105,7 @@
     }
   }
   S = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), S);
-  for (const k of ['rooms', 'pomo', 'remind', 'bgm', 'look', 'stats', 'ui', 'login']) S[k] = Object.assign(JSON.parse(JSON.stringify(DEFAULT[k])), S[k] || {});
+  for (const k of ['rooms', 'pomo', 'remind', 'bgm', 'look', 'stats', 'ui', 'login', 'light']) S[k] = Object.assign(JSON.parse(JSON.stringify(DEFAULT[k])), S[k] || {});
   S.items = S.items.filter(i => (TYPES[i.type] || i.type === 'box') && ROOMS[i.room] && !i.trial);
   if (!ROOMS[S.room]) S.room = 'main';
   // ピンクの部屋 → ナチュラルミニマルへ（v5）
@@ -254,6 +255,7 @@
     pin: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d="M5 1h6v1h-1v4h1v1h1v1h1v1H9v6H7V9H3V8h1V7h1V6h1V2H5z"/></svg>',
     min: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d="M3 8h10v2H3z"/></svg>',
     home: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" fill-rule="evenodd"><path d="M7 1h2v1h1v1h1v1h1v1h1v1h1v1h1v2h-2v6H3V9H1V7h1V6h1V5h1V4h1V3h1V2h1zM7 11v4h2v-4z"/></svg>',
+    bulb: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d="M6 1h4v1h1v1h1v4h-1v1h-1v2H6V8H5V7H4V3h1V2h1zM6 11h4v1H6zM6 13h4v1H6zM7 15h2v1H7z"/></svg>',
     bag: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor" fill-rule="evenodd"><path d="M5 2h6v1h1v2h2v10H2V5h2V3h1zM6 4v1h4V4zM5 7v1h1V7zm5 0v1h1V7z"/></svg>',
     close: '<svg viewBox="0 0 16 16" shape-rendering="crispEdges" fill="currentColor"><path d="M2 2h3v3H2zM5 5h3v3H5zM8 8h3v3H8zM11 11h3v3h-3zM11 2h3v3h-3zM8 5h3v3H8zM5 8h3v3H5zM2 11h3v3H2z"/></svg>',
   };
@@ -266,6 +268,7 @@
       <div class="btns">
         <button class="ibtn" id="btnShop" title="おみせ" aria-label="おみせ">${I.bag}</button>
         <button class="ibtn" id="btnPip" title="小窓にして、いつも手前に表示" aria-label="小窓にする" hidden>${I.pip}</button>
+        <button class="ibtn" id="btnLight" title="部屋の電気" aria-label="部屋の電気">${I.bulb}</button>
         <button class="ibtn" id="btnEdit" title="模様替え（家具・壁紙・床）" aria-label="模様替え">${I.edit}</button>
         <button class="ibtn" id="btnSet" title="せってい" aria-label="せってい">${I.gear}</button>
         <button class="ibtn desktop-only" id="btnPin" title="いつも手前に表示" aria-label="いつも手前に表示">${I.pin}</button>
@@ -616,7 +619,14 @@
 
     // 時間帯の暗さと、ランプのあかり
     const sky = skyNow();
-    const dark = Math.max(sky.dark, weatherNow() === 'rain' && !sky.star ? 0.08 : 0);
+    // 部屋の電気：つけると夜でも明るい。消すと窓と照明だけのあかり
+    const outside = Math.max(sky.dark, weatherNow() === 'rain' && !sky.star ? 0.08 : 0);
+    const roomLit = S.light.on && S.room !== 'shop';
+    const dark = S.room === 'shop' ? outside * 0.25 : roomLit ? outside * 0.12 : outside + (sky.dark ? 0.08 : 0.06);
+    if (roomLit && S.light.warm) { // 電球色：白いところをほんのり暖かい色に
+      g.globalCompositeOperation = 'multiply'; g.fillStyle = '#fff0dc'; g.fillRect(0, 0, vw, H);
+      g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(255,200,130,.04)'; g.fillRect(0, 0, vw, H);
+    }
     if (dark > 0.05) for (const L of lights) { g.fillStyle = 'rgba(255,214,140,.10)'; dotCircle(g, L.x, L.y + 14, Math.round(40 * L.r)); }
     if (dark > 0) {
       sctx.clearRect(0, 0, vw, H);
@@ -1113,6 +1123,8 @@
     },
     settings() {
       return `
+        <div class="lbl">部屋の明かりの色</div>
+        <div class="choices">${btn('lightColor', '白い光', S.light.warm ? '' : 'on', 'white')}${btn('lightColor', '暖色の光（電球色）', S.light.warm ? 'on' : '', 'warm')}</div>
         <div class="lbl">女の子の名前</div>
         <div class="row"><input type="text" data-f="name" value="${esc(S.name)}" placeholder="名前をつける" maxlength="10" aria-label="名前"></div>
         <div class="lbl">お天気（窓の外に反映）</div>
@@ -1198,6 +1210,7 @@
       case 'look': S.look[b.dataset.k] = v; say(pick(['にあう？', 'かわいい？', 'えへへ'])); break;
       case 'toShop': closePanel(); return openShop(v);
       case 'cityOff': S.city = null; S.wx = null; break;
+      case 'lightColor': S.light.warm = v === 'warm'; if (!S.light.on) setLight(true); say(S.light.warm ? 'あったかい色、落ちつく〜' : 'すっきり明るいね'); dirty = true; break;
       case 'city': { const c = cityResults[+v]; S.city = { name: c.name, lat: c.lat, lon: c.lon }; cityResults = null; lastWxFetch = 0; fetchWeather(); break; }
       case 'export': exportCode = btoa(unescape(encodeURIComponent(JSON.stringify(S)))); break;
       case 'copy': {
@@ -1878,6 +1891,17 @@
     if (e.target.id === 'toastBtn' && toastFn) toastFn();
     $('toast').hidden = true; toastFn = null;
   });
+  function setLight(on) {
+    S.light.on = on; save(); dirty = true;
+    $('btnLight').classList.toggle('active', on);
+    $('btnLight').title = on ? '部屋の電気を消す' : '部屋の電気をつける';
+  }
+  $('btnLight').addEventListener('click', () => {
+    if (S.room === 'shop') return toast('おみせの電気はつけたままです');
+    setLight(!S.light.on);
+    say(S.light.on ? pick(['明るくなった！', 'よく見える〜']) : pick(['ちょっと暗いね', 'まったりモード']));
+  });
+  setLight(S.light.on);
   $('btnEdit').addEventListener('click', () => { closeShop(); if (S.room === 'shop') return toast('おみせの中は模様替えできません'); setEditing(!editing); });
   $('btnShop').addEventListener('click', () => goRoom(S.room === 'shop' ? (S.home || 'main') : 'shop'));
   $('coins').addEventListener('click', () => (panelKind === 'wish' ? closePanel() : openPanel('wish', false)));

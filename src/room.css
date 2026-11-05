@@ -441,3 +441,4 @@ canvas.room { position: absolute; left: 0; top: 0; display: block; image-renderi
 .stars.small { font-size: 18px; }
 .stars.small .coin-img { width: 16px; height: 16px; }
 #btnShop.home { background: #9aab8c; color: #2f2c28; }
+#btnLight.active { background: #e6cf9a; color: #2f2c28; }
