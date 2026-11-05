@@ -638,7 +638,7 @@
       },
     },
     door: {
-      name: 'ドア', tool: 'door', w: 24, h: 54,
+      name: 'ドア', tool: 'door', deco: true, w: 24, h: 54,
       key: st => st.to,
       draw(P, st) {
         P.r(0, 0, 24, 54, N.oak).r(2, 2, 20, 52, N.white).r(2, 2, 20, 1, '#ece8e0');

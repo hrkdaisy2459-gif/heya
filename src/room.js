@@ -19,7 +19,7 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-  const ROOMS = { main: { name: 'へや', w: 720 }, kitchen: { name: 'キッチン', w: 420 }, shop: { name: 'おみせ', w: 800 } };
+  const ROOMS = { main: { name: 'へや', w: 720 }, shop: { name: 'おみせ', w: 800 } };
   const SIDE = { natural: '#e8e2d8', shop: '#e8dccb', pink: '#efcdd7', mint: '#cdeadf', flower: '#f0e2c8', wood: '#c4925f', wa: '#e2d1ad', stars: '#1f2448', luxe: '#f3e6e2', brick: '#9e5340', china: '#a51c30' };
 
   /* ---------- 保存 ---------- */
@@ -27,7 +27,6 @@
   const defaultItems = () => [
     // へや（ナチュラルミニマル）
     { id: 22, room: 'main', type: 'slat', x: 208, y: 82 },
-    { id: 1, room: 'main', type: 'door', x: 22, d: 0.02 },
     { id: 2, room: 'main', type: 'shelf', x: 58, d: 0.03 },
     { id: 21, room: 'main', type: 'plant', x: 86, d: 0.06 },
     { id: 3, room: 'main', type: 'window', x: 126, y: 64 },
@@ -49,19 +48,11 @@
     { id: 20, room: 'main', type: 'window', x: 640, y: 60 },
     { id: 19, room: 'main', type: 'bed', x: 636, d: 0.06 },
     { id: 23, room: 'main', type: 'plant', x: 698, d: 0.06 },
-    // キッチン
-    { id: 30, room: 'kitchen', type: 'door', x: 24, d: 0.02 },
-    { id: 31, room: 'kitchen', type: 'fridge', x: 64, d: 0.03 },
-    { id: 32, room: 'kitchen', type: 'counter', x: 126, d: 0.04 },
-    { id: 33, room: 'kitchen', type: 'window', x: 126, y: 52 },
-    { id: 34, room: 'kitchen', type: 'table', x: 236, d: 0.3 },
-    { id: 35, room: 'kitchen', type: 'plant', x: 300, d: 0.05 },
-    { id: 36, room: 'kitchen', type: 'shelf', x: 360, d: 0.03 },
   ];
   const DEFAULT = {
-    ver: 5,
+    ver: 6,
     room: 'main',
-    rooms: { main: { wall: 'natural', floor: 'oak', cam: 120 }, kitchen: { wall: 'natural', floor: 'tile', cam: 30 }, shop: { wall: 'shop', floor: 'wood', cam: 0 } },
+    rooms: { main: { wall: 'natural', floor: 'oak', cam: 120 }, shop: { wall: 'shop', floor: 'wood', cam: 0 } },
     home: 'main',
     items: defaultItems(),
     nextId: 100,
@@ -106,15 +97,20 @@
   }
   S = Object.assign(JSON.parse(JSON.stringify(DEFAULT)), S);
   for (const k of ['rooms', 'pomo', 'remind', 'bgm', 'look', 'stats', 'ui', 'login', 'light']) S[k] = Object.assign(JSON.parse(JSON.stringify(DEFAULT[k])), S[k] || {});
+  // キッチンをなくした（v6）：届いたままの荷物はへやへ。置いてあった物は消え、お店で買った物は持ち物に戻る
+  if ((S.ver || 0) < 6) {
+    for (const i of S.items) if (i.room === 'kitchen' && i.type === 'box') { i.room = 'main'; i.x = 60; i.d = 0.45; }
+    S.items = S.items.filter(i => !(i.room === 'main' && i.type === 'door'));
+    if (S.room === 'kitchen') S.room = 'main';
+    S.home = 'main';
+  }
   S.items = S.items.filter(i => (TYPES[i.type] || i.type === 'box') && ROOMS[i.room] && !i.trial);
   if (!ROOMS[S.room]) S.room = 'main';
   // ピンクの部屋 → ナチュラルミニマルへ（v5）
   if ((S.ver || 0) < 5) {
-    const m = S.rooms.main, k = S.rooms.kitchen;
+    const m = S.rooms.main;
     if (!m.wall || m.wall === 'pink') m.wall = 'natural';
     if (!m.floor || m.floor === 'wood' || m.floor === 'carpet') m.floor = 'oak';
-    if (k.wall === 'mint') k.wall = 'natural';
-    if (k.floor === 'carpet') k.floor = 'tile';
     if (!S.items.some(i => i.type === 'slat')) {
       const desk = S.items.find(i => i.type === 'desk' && i.room === 'main');
       S.nextId = Math.max(S.nextId || 100, 100);
@@ -122,6 +118,8 @@
     }
     S.ver = 5;
   }
+  delete S.rooms.kitchen;
+  S.ver = 6;
   if (!S.memos.length) S.memos = [{ id: 1, text: '' }];
   let saveT = 0;
   const save = () => {
@@ -465,7 +463,7 @@
       case 'radio': return { on: !!S.bgm.kind };
       case 'calendar': return { month: now.getMonth() + 1, day: now.getDate(), event: !!(S.events[dateKey()] || '').trim() };
       case 'trophy': return { tier: S.stats.stars >= 60 ? 3 : S.stats.stars >= 30 ? 2 : S.stats.stars >= 10 ? 1 : 0 };
-      case 'door': return { to: it.room === 'main' ? 'kitchen' : 'main' };
+      case 'door': return { to: 'main' };
       case 'fishbowl': return { frame };
       case 'box': return {};
       default: return { frame, on: !!it.on, sky: skyNow() };
@@ -742,7 +740,7 @@
       bs.title = inShop ? 'おうちに帰る' : 'おみせに行く'; bs.setAttribute('aria-label', bs.title);
       bs.classList.toggle('home', inShop);
     }
-    $('title').textContent = S.room === 'shop' ? 'おみせ' : (S.name ? `${S.name}の` : '') + (S.room === 'kitchen' ? 'キッチン' : 'へや');
+    $('title').textContent = S.room === 'shop' ? 'おみせ' : (S.name ? `${S.name}の` : '') + 'へや';
     const big = $('timerBig'); if (big) big.textContent = fmt(tleft);
     const ts = $('timerStart'); if (ts) ts.textContent = S.timer.running ? '一時停止' : (tleft < S.timer.dur && tleft > 0 ? '再開' : 'スタート');
     const pb = $('pomoBig'); if (pb) { pb.textContent = fmt(p.phase === 'idle' ? p.work * 60000 : pomoLeft()); pb.dataset.mode = p.phase; }
@@ -1767,7 +1765,6 @@
         say(pick(['おみせ着いた！', 'なに買おうかな'])); hostLater(() => catSay(catGreeting()), 900);
         if (!S.ui.shopHint) { S.ui.shopHint = true; hostLater(() => toast('おうちに帰るときは、右上の家のボタンか、入口のドアを押してね', null, 8000), 600); }
       }
-      else if (to === 'kitchen' && S.home !== 'kitchen') say(pick(['なに食べよっか', 'キッチンだよ']));
       else if (roomItems().some(i => i.type === 'box')) say('ただいま〜 荷物とどいてる！');
       else say('ただいま〜');
       if (editing) renderCatalog();
@@ -1858,7 +1855,7 @@
       if (it.type === 'fitting') { walkNear(it); return say('マネキンを押すと、試着できるよ'); }
       if (it.type === 'hangSign' || it.type === 'pendant' || it.type === 'shopWindow') return;
     }
-    if (t.tool === 'door') return goRoom(it.room === 'shop' ? (S.home || 'main') : it.room === 'main' ? 'kitchen' : 'main');
+    if (t.tool === 'door') return goRoom('main');
     if (t.tool) {
       if (ring && ring.kind === t.tool) stopRing();
       if (t.tool === 'memo') startAct('desk', it, 40000); else walkNear(it);
