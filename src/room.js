@@ -51,7 +51,7 @@
     { id: 23, room: 'main', type: 'plant', x: 698, d: 0.06 },
   ];
   const DEFAULT = {
-    ver: 7,
+    ver: 8,
     room: 'main',
     rooms: { main: { wall: 'natural', floor: 'oak', cam: 120 }, outside: { wall: 'houseExt', floor: 'paving', cam: 0 }, shop: { wall: 'shop', floor: 'wood', cam: 0 } },
     home: 'main',
@@ -69,7 +69,7 @@
     remind: { water: { on: false, every: 60, next: 0 }, posture: { on: false, every: 30, next: 0 }, eyes: { on: false, every: 45, next: 0 } },
     events: {},
     bgm: { kind: null, vol: 0.5 },
-    look: { hair: 'long', hairColor: 'brown', outfit: 'mizuiro' },
+    look: { hair: 'long', hairColor: 'brown', outfit: 'cardigan' },
     name: '',
     city: null,
     wx: null,
@@ -1152,7 +1152,7 @@
       const opt = (kind, entries, render) => entries.filter(([k]) => owns(`${kind}:${k}`)).map(render).join('');
       const more = SHOP.ITEMS.filter(i => ['outfit', 'hair', 'hairColor'].includes(i.kind) && !owns(i.id) && i.price && limitedNow(i)).length;
       return `
-        <div class="dress-top"><canvas id="dressPrev" width="24" height="32"></canvas>
+        <div class="dress-top"><canvas id="dressPrev" width="23" height="36"></canvas>
           <div class="dress-col">
             <div class="lbl">髪型</div>
             <div class="choices">${opt('hair', Object.entries(A.HAIR_STYLES), ([k, n]) => `<button class="btn ${L.hair === k ? 'on' : ''}" data-act="look" data-k="hair" data-v="${k}">${n}</button>`)}</div>
@@ -1161,7 +1161,7 @@
         <div class="lbl">髪の色</div>
         <div class="swatches">${opt('hairColor', Object.entries(A.HAIR_COLORS), ([k, c]) => `<button class="sw ${L.hairColor === k ? 'on' : ''}" style="--c:${c.h}" title="${c.name}" data-act="look" data-k="hairColor" data-v="${k}"></button>`)}</div>
         <div class="lbl">服</div>
-        <div class="choices">${opt('outfit', Object.entries(A.OUTFITS), ([k, o]) => `<button class="btn ${L.outfit === k ? 'on' : ''}" data-act="look" data-k="outfit" data-v="${k}"><i class="dot" style="--c:${o.d}"></i>${o.name}</button>`)}</div>
+        <div class="choices">${opt('outfit', Object.entries(A.OUTFITS), ([k, o]) => `<button class="btn ${L.outfit === k ? 'on' : ''}" data-act="look" data-k="outfit" data-v="${k}"><i class="dot" style="--c:${o.k}"></i>${o.name}</button>`)}</div>
         ${more ? `<div class="row"><button class="btn small primary" data-act="toShop" data-v="fashion">お店で服を見る（${more}点）</button></div>` : ''}`;
     },
     stats() {
@@ -2093,6 +2093,11 @@
   }
 
   buildShop();
+  // 新しい絵柄（v8）：最初の服だった人は、新しい標準のカーディガンに
+  if ((S.ver || 0) < 8) {
+    if (S.look.outfit === 'mizuiro') S.look.outfit = 'cardigan';
+    S.ver = 8;
+  }
   // 試着したまま閉じた場合などに、持っていない物を外す
   for (const k of ['hair', 'hairColor', 'outfit']) if (!owns(`${k}:${S.look[k]}`)) S.look[k] = DEFAULT.look[k];
   for (const [rk, r] of Object.entries(S.rooms)) for (const k of ['wall', 'floor']) if (!owns(`${k}:${r[k]}`)) r[k] = DEFAULT.rooms[rk][k];

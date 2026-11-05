@@ -255,7 +255,7 @@ canvas.room { position: absolute; left: 0; top: 0; display: block; image-renderi
 .remind { border: 2px solid var(--soft); padding: 5px; display: flex; flex-direction: column; gap: 4px; }
 
 .dress-top { display: flex; gap: 10px; align-items: center; }
-.dress-top canvas { width: 72px; height: 96px; image-rendering: pixelated; background: var(--soft); border: 2px solid var(--line); flex: none; }
+.dress-top canvas { width: 69px; height: 108px; image-rendering: pixelated; background: var(--soft); border: 2px solid var(--line); flex: none; }
 .dress-col { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .swatches { display: flex; flex-wrap: wrap; gap: 5px; }
 .sw { width: 26px; height: 22px; border: 2px solid var(--line); background: var(--c); cursor: pointer; padding: 0; position: relative; }

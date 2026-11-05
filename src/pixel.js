@@ -120,179 +120,190 @@
     metal: '#5b5068', metalL: '#8b7f99', gold: '#ffd166', red: '#e2475e', steel: '#c9d3df', steelD: '#8fa4b8',
   };
 
-  /* ---------- 女の子 ---------- */
+  /* ---------- 女の子 ----------
+     3頭身。13ドット幅の顔に、縦長の瞳（上にハイライト）、目じりの小さなはね、薄い眉、流した前髪。
+     体は袖のある腕と手（胴体との間に1ドットのすき間を空けて、輪郭で腕が見えるようにする）。 */
   const HAIR_COLORS = {
-    brown: { name: 'ちゃいろ', h: '#8a5040', H: '#b9735a', k: '#6a3a30' },
-    black: { name: 'くろ', h: '#3b3040', H: '#62526e', k: '#251c2b' },
-    blonde: { name: 'きんいろ', h: '#e3ad45', H: '#ffe08a', k: '#b8842a' },
-    pink: { name: 'ピンク', h: '#f58fb0', H: '#ffc2d6', k: '#d0668a' },
-    aqua: { name: 'みずいろ', h: '#5fbfd6', H: '#a8e6f0', k: '#3f98ad' },
-    silver: { name: 'ぎんいろ', h: '#bdb7cc', H: '#f0eef7', k: '#938ca6' },
-    milktea: { name: 'ミルクティー', h: '#c9a07a', H: '#ecd3b4', k: '#a37c58' },
+    brown: { name: 'ちゃいろ', h: '#5b4034', H: '#86624f' },
+    black: { name: 'くろ', h: '#2e2624', H: '#54453f' },
+    blonde: { name: 'きんいろ', h: '#c99a52', H: '#e8c47e' },
+    pink: { name: 'ピンク', h: '#d98aa0', H: '#f0b4c4' },
+    aqua: { name: 'みずいろ', h: '#6aa8b8', H: '#9cccd8' },
+    silver: { name: 'ぎんいろ', h: '#b4aebf', H: '#e0dce8' },
+    milktea: { name: 'ミルクティー', h: '#b48a68', H: '#d8b494' },
   };
+  // 服：k/K 上着, n 中に着ているもの, t/T/u 下（スカート）, r アクセント
   const OUTFITS = {
-    mizuiro: { name: 'みずいろワンピ', d: '#9ad8e2', D: '#6bb8c4', w: '#ffffff', r: '#ff6f91' },
-    yellow: { name: 'きいろワンピ', d: '#ffe08a', D: '#f0bd4f', w: '#ffffff', r: '#ff8f6b' },
-    pajama: { name: 'パジャマ', d: '#c9b8f0', D: '#a895d9', w: '#fff6c9', r: '#ffd166' },
-    pink: { name: 'ピンクワンピ', d: '#ffb3c6', D: '#f08aa6', w: '#ffffff', r: '#e2557a' },
-    sailor: { name: 'セーラー服', d: '#41508f', D: '#2e3a6e', w: '#ffffff', r: '#e2475e' },
-    maid: { name: 'メイド服', d: '#3a3348', D: '#262030', w: '#ffffff', r: '#ff8fab' },
-    frill: { name: 'フリルブラウス', style: 'frill', d: '#f7a8c0', D: '#e48aa8', w: '#ffffff', r: '#c9a24a' },
-    jacket: { name: 'ライダース', style: 'jacket', d: '#3a3036', D: '#4f74a8', w: '#f4f4f4', r: '#c94a4a' },
-    kimono: { name: '着物', style: 'kimono', d: '#e8708f', D: '#c25473', w: '#ffffff', r: '#ffd166' },
-    chinaDress: { name: 'チャイナドレス', style: 'china', d: '#d7263d', D: '#a51c30', w: '#ffd166', r: '#ffd166' },
-    witch: { name: '魔女っ子', style: 'witch', d: '#5b3a8c', D: '#2b2238', w: '#ff9f43', r: '#ff9f43' },
-    santa: { name: 'サンタ服', style: 'santa', d: '#e2475e', D: '#ffffff', w: '#ffffff', r: '#ffd166' },
+    cardigan: { name: 'カーディガン', k: '#ddd2bf', K: '#bfae92', n: '#fbf8f2', t: '#4a4a52', T: '#36363c', u: '#5c5c66', r: '#9aab8c' },
+    mizuiro: { name: 'みずいろワンピ', style: 'dress', k: '#a9d3dc', K: '#82b6c2', n: '#ffffff', t: '#a9d3dc', T: '#82b6c2', u: '#96c4ce', r: '#e88aa0' },
+    yellow: { name: 'きいろワンピ', style: 'dress', k: '#ecd28e', K: '#d0b06a', n: '#ffffff', t: '#ecd28e', T: '#d0b06a', u: '#dfc27c', r: '#d98a6a' },
+    pajama: { name: 'パジャマ', style: 'dress', k: '#cdc2e6', K: '#aea2cf', n: '#fff6e0', t: '#cdc2e6', T: '#aea2cf', u: '#bdb1da', r: '#e8c47e' },
+    pink: { name: 'ピンクワンピ', style: 'dress', k: '#efb8c6', K: '#d896a8', n: '#ffffff', t: '#efb8c6', T: '#d896a8', u: '#e4a8b8', r: '#c9506e' },
+    sailor: { name: 'セーラー服', style: 'sailor', k: '#3f4a78', K: '#2e3760', n: '#ffffff', t: '#3f4a78', T: '#2e3760', u: '#4e5a8a', r: '#c94a4a' },
+    maid: { name: 'メイド服', style: 'maid', k: '#34303c', K: '#24212a', n: '#ffffff', t: '#34303c', T: '#24212a', u: '#44404c', r: '#d98aa0' },
+    frill: { name: 'フリルブラウス', style: 'blouse', k: '#ffffff', K: '#e6e0d8', n: '#ffffff', t: '#efb8c6', T: '#ffffff', u: '#e0a2b4', r: '#c9a24a' },
+    jacket: { name: 'ライダース', k: '#34302e', K: '#22201f', n: '#f4f4f4', t: '#5a7aa6', T: '#46628a', u: '#6c8cb6', r: '#c94a4a' },
+    kimono: { name: '着物', style: 'kimono', k: '#e8a0b2', K: '#cf8298', n: '#ffffff', t: '#e8a0b2', T: '#cf8298', u: '#f4c4d0', r: '#e6c46a' },
+    chinaDress: { name: 'チャイナドレス', style: 'china', k: '#c8303f', K: '#9e2232', n: '#c8303f', t: '#c8303f', T: '#e6c46a', u: '#b02838', r: '#e6c46a' },
+    witch: { name: '魔女っ子', style: 'witch', k: '#5b4682', K: '#3c2e5a', n: '#e8a24a', t: '#5b4682', T: '#2b2238', u: '#6a5494', r: '#e8a24a' },
+    santa: { name: 'サンタ服', style: 'dress', k: '#cc3f4c', K: '#a8303c', n: '#ffffff', t: '#cc3f4c', T: '#ffffff', u: '#b83644', r: '#e6c46a' },
   };
   const HAIR_STYLES = { long: 'ロング', bob: 'ボブ', twin: 'ツインテール', bun: 'おだんご' };
 
   const HEAD = [
-    '.......hhhhhhh........',
-    '.....hhhhhhhhhhh..rr..',
-    '....hhhHHhhhhhhhhrRRr.',
-    '...hhhHHhhhhhhhhhhrRr.',
-    '...hhHhhhhhhhhhhhhhr..',
-    '..hhhhhhhhhhhhhhhhhh..',
-    '..hhhhhhhhhhhhhhhhhhh.',
-    '..hhhhhhkshhhhkshhhhh.',
-    '..hhhhkssssskssssshhh.',
-    '..hhhhssssssssssssshh.',
-    '..hhhsssssssssssssshh.',
+    '.......hhhhhhh.......',
+    '.....hhhhhhhhhhh.....',
+    '....hhhHHHhhhhhhh....',
+    '...hhhHHhhhhhhhhhh...',
+    '...hhHhhhhhhhhhhhhh..',
+    '..hhhhhhhhhhhhhhhhh..',
+    '..hhhhhhHHhhhhhhhhh..',
+    '..hhhhhhshHhhhhhhhh..',
+    '..hhhhhssshHhhhhhhh..',
   ];
-  const EYES_OPEN = [
-    '..hhhseeesssssseeeshh.',
-    '..hhhseWeesssseWeeshh.',
-    '..hhhsEEEsssssEEEsshh.',
-    '..hhhsEEEsssssEEEsshh.',
+  const face = rows => rows.map(r => '..hh' + r + 'hh..');
+  const FACE_OPEN = face([
+    'ssqqsssssqHhs',
+    'sseesssssseess'.slice(0, 2) + 'ee' + 'sssss' + 'ee' + 'ss',
+    'sewisssssiwes',
+    'ssijsssssjiss',
+    'ssIIsssssIIss',
+    'scssssmsssscs',
+    'sssssssssssss',
+  ]);
+  const FACE_SHUT = face([
+    'ssqqsssssqHhs',
+    'sssssssssssss',
+    'sssssssssssss',
+    'sseesssssseess'.slice(0, 2) + 'ee' + 'sssss' + 'ee' + 'ss',
+    'sssssssssssss',
+    'scssssmsssscs',
+    'sssssssssssss',
+  ]);
+  const JAW = ['..hhhhssssssssshhhh..', '..hhhh...SSS...hhhh..'];
+  const TOP = [
+    '..hhkkkknnnnnkkkkhh..',
+    '..hhkkkkknnnkkkkkhh..',
+    '..hkk.kkknnnkkk.kkh..',
+    '..hkk.kkknnnkkk.kkh..',
+    '..hkK.kkknnnkkk.Kkh..',
+    '..hkK.kkkknkkkk.Kkh..',
+    '...ss.kkkkkkkkk.ss...',
   ];
-  const EYES_SHUT = [
-    '..hhhssssssssssssssh..',
-    '..hhhssssssssssssssh..',
-    '..hhhseeesssssseeeshh.',
-    '..hhhsssssssssssssshh.',
-  ];
-  const FACE_LOW = [
-    '..hhhcccsssmssscccshh.',
-    '..hhhhssssssssssssshh.',
-    '..hhhh.Sssssssss.hhhh.',
-  ];
-  const BODY = [
-    '..hhhh..ddwrwdd..hhh..',
-    '..hhh..ddddwdddd..hh..',
-    '..hh..ddddddddddd.hh..',
-    '...h.sddddddddddds.h..',
-    '.....sddddddddddds....',
-    '......dddddddddd......',
-    '.....dddddddddddd.....',
-    '....DddddddddddddD....',
-    '....DDDDDDDDDDDDDD....',
+  const BOTTOM = [
+    '......ttttttttt......',
+    '.....ttuttttuttt.....',
+    '.....tttutttuttt.....',
+    '....ttuttttttuttt....',
+    '...ttuttttttttuttt...',
+    '...TTTTTTTTTTTTTTT...',
   ];
   const LEGS = {
-    stand: ['.......ss....ss.......', '.......ll....ll.......', '......bbb....bbb......'],
-    a: ['.......ss....ss.......', '.......ll....ll.......', '......bbb.....bb......'],
-    b: ['.......ss....ss.......', '.......ll....ll.......', '.......bb....bbb......'],
-    sit: ['......lll....lll......', '......bbb....bbb......'],
+    stand: ['........ll.ll........', '........ll.ll........', '.......bbb.bbb.......'],
+    a: ['........ll.ll........', '........ll.ll........', '.......bbb..bb.......'],
+    b: ['........ll.ll........', '........ll.ll........', '........bb.bbb.......'],
   };
   const CHAIR = [
-    '....oooooooooooooo....',
-    '....oOOOOOOOOOOOOo....',
-    '....oOOOOOOOOOOOOo....',
-    '....oooooooooooooo....',
-    '...oooooooooooooooo...',
-    '....o............o....',
-    '....o............o....',
-    '....o............o....',
-    '....o............o....',
+    '....ooooooooooooo....',
+    '....oOOOOOOOOOOOo....',
+    '....oOOOOOOOOOOOo....',
+    '....ooooooooooooo....',
+    '...ooooooooooooooo...',
+    '....o...........o....',
+    '....o...........o....',
+    '....o...........o....',
+    '....o...........o....',
   ];
   const set = (row, i, ch) => row.slice(0, i) + ch + row.slice(i + 1);
-  const GIRL_W = 22, GIRL_H = 30;
+  const GIRL_W = 21, GIRL_H = 34;
+  const ROW = { face: 9, jaw: 16, top: 18, bottom: 25, legs: 31 };
 
-  // 髪型を行に反映する（front: 正面 / back: 後ろ姿）
+  // 服の形（色だけでなく、えり・帯・エプロンなどの形）。top は TOP の7行、bottom は BOTTOM の6行
+  function applyOutfit(top, bottom, style, back) {
+    const T = top.slice(), B = bottom.slice();
+    const each = (rows, list, fn) => list.forEach(i => { let r = rows[i]; for (let x = 0; x < r.length; x++) { const c = fn(r[x], x); if (c && c !== r[x]) r = set(r, x, c); } rows[i] = r; });
+    const torso = x => x >= 6 && x <= 14;
+    const noInner = (from = 1) => each(T, [1, 2, 3, 4, 5].filter(i => i >= from), c => (c === 'n' ? 'k' : null));
+    if (back) each(T, [0, 1, 2, 3, 4, 5], c => (c === 'n' ? 'k' : null));
+    switch (style) {
+      case 'dress':
+        if (!back) { each(T, [0], (c, x) => (c === 'n' && (x < 8 || x > 12) ? 'k' : null)); noInner(); }
+        break;
+      case 'witch':
+        if (!back) { each(T, [0], (c, x) => (c === 'n' && (x < 8 || x > 12) ? 'k' : null)); noInner(); }
+        each(B, [5], (c, x) => (c === 'T' && x % 2 ? '.' : null));
+        break;
+      case 'sailor':
+        if (!back) { noInner(2); each(T, [1], (c, x) => (x === 10 ? 'r' : null)); each(T, [2], (c, x) => (x >= 9 && x <= 11 ? 'r' : null)); }
+        else each(T, [0, 1], (c, x) => (torso(x) || x === 5 || x === 15 ? 'n' : null));
+        break;
+      case 'maid':
+        if (!back) { noInner(2); each(T, [3, 4, 5, 6], (c, x) => (x >= 9 && x <= 11 ? 'n' : null)); each(B, [0, 1, 2, 3, 4], (c, x) => (x >= 8 && x <= 12 ? 'n' : null)); }
+        each(B, [5], (c, x) => (c === 'T' && x % 2 ? 'n' : null));
+        break;
+      case 'blouse':
+        each(B, [5], (c, x) => (c === 'T' && x % 2 ? 'u' : null));
+        if (!back) each(T, [0], (c, x) => (x === 10 ? 'r' : null));
+        break;
+      case 'kimono':
+        if (!back) { each(T, [0], (c, x) => (c === 'n' ? (x === 8 || x === 12 ? 'n' : 'k') : null)); each(T, [1], (c, x) => (c === 'n' ? (x === 10 ? 'n' : 'k') : null)); noInner(2); }
+        each(T, [5, 6], (c, x) => (torso(x) ? 'r' : null));
+        each(B, [3], (c, x) => (x === 4 || x === 16 ? '.' : null));
+        each(B, [4, 5], (c, x) => (x <= 4 || x >= 16 ? '.' : null));
+        each(B, [1, 3], (c, x) => (c === 't' && x % 4 === 1 ? 'u' : null));
+        break;
+      case 'china':
+        each(T, [0], (c, x) => (c === 'n' ? 'r' : null));
+        if (!back) { noInner(); each(T, [1, 2, 3], (c, x) => (x === 12 ? 'r' : null)); each(B, [3, 4, 5], (c, x) => (x === 12 ? 'l' : null)); }
+        break;
+      default:
+    }
+    return [T, B];
+  }
+  const outfitStyle = look => (OUTFITS[look.outfit] || {}).style;
+  // 髪型（long: そのまま / bob: あごの下まで / twin: ボブ＋ツインテール / bun: ボブ＋おだんご）
   function applyHair(rows, style, back) {
     rows = rows.slice();
     if (style === 'bob' || style === 'twin' || style === 'bun') {
-      for (let i = 17; i < rows.length; i++) rows[i] = rows[i].replace(/[hHk]/g, '.');
-      if (back) rows[17] = '.........ss...........';
+      for (let i = ROW.jaw + 1; i < rows.length; i++) rows[i] = rows[i].replace(/[hH]/g, '.');
+      if (back) rows[ROW.jaw + 1] = '.........SSS.........';
     }
     if (style === 'twin') {
-      for (let i = 0; i < 5; i++) rows[i] = rows[i].replace(/[rR]/g, '.');
-      for (let i = 8; i <= 23 && i < rows.length; i++) {
-        const tie = i <= 9, tip = i === 23;
+      for (let i = ROW.face; i <= ROW.top + 8 && i < rows.length; i++) {
+        const tie = i <= ROW.face + 1, tip = i === ROW.top + 8;
         const c = tie ? 'r' : 'h';
-        if (!tip) { rows[i] = set(set(rows[i], 0, c), 1, c); rows[i] = set(set(rows[i], 20, c), 21, c); }
-        else { rows[i] = set(rows[i], 1, 'h'); rows[i] = set(rows[i], 20, 'h'); }
+        if (!tip) { rows[i] = set(set(rows[i], 0, c), 1, c); rows[i] = set(set(rows[i], 19, c), 20, c); }
+        else { rows[i] = set(rows[i], 1, 'h'); rows[i] = set(rows[i], 19, 'h'); }
       }
     }
     if (style === 'bun') {
-      for (let i = 0; i < 5; i++) rows[i] = rows[i].replace(/[rR]/g, i < 2 ? '.' : 'h');
       const bun = ['.hh.', 'hHhh', 'hhhh', '.rr.'];
-      bun.forEach((b, j) => { for (let x = 0; x < 4; x++) if (b[x] !== '.') { rows[j] = set(rows[j], 2 + x, b[x]); rows[j] = set(rows[j], 16 + x, b[x]); } });
+      bun.forEach((b, j) => { for (let x = 0; x < 4; x++) if (b[x] !== '.') { rows[j] = set(rows[j], 2 + x, b[x]); rows[j] = set(rows[j], 15 + x, b[x]); } });
     }
     if (back && style === 'long') {
-      for (let i = 18; i <= 23; i++) {
-        const [a, b] = i === 23 ? [7, 14] : [6, 15];
+      for (let i = ROW.top; i <= ROW.top + 5; i++) {
+        const [a, b] = i === ROW.top + 5 ? [7, 13] : [6, 14];
         for (let x = a; x <= b; x++) if (rows[i][x] !== '.') rows[i] = set(rows[i], x, 'h');
       }
     }
     return rows;
   }
-  // 服の形（色だけでなく、えりや帯などの形を変える）。body は BODY の9行
-  function applyOutfit(body, style, back) {
-    const b = body.slice();
-    const each = (rows, fn) => rows.forEach(i => { let r = b[i]; for (let x = 0; x < 22; x++) { const c = fn(r[x], x, i); if (c && c !== r[x]) r = set(r, x, c); } b[i] = r; });
-    const cloth = c => 'dDwr'.includes(c);
-    switch (style) {
-      case 'frill': // 白いブラウスとピンクのスカート、すそにレース
-        each([0, 1, 2, 3, 4], c => (c === 'd' ? 'w' : null));
-        if (!back) each([0], (c, x) => (x === 10 || x === 11 ? 'r' : null));
-        each([8], (c, x) => (c === 'D' && x % 2 ? 'w' : null));
-        break;
-      case 'jacket': // 黒の革ジャン、中に白T、デニムのスカート
-        each([5, 6, 7, 8], c => (c === 'd' ? 'D' : null));
-        each([0], c => (c === 'r' ? 'd' : null));
-        if (!back) each([0, 1, 2, 3, 4], (c, x) => ((x === 10 || x === 11) && cloth(c) ? 'w' : null));
-        break;
-      case 'kimono': // えりの合わせ、帯、長いそで
-        if (!back) { each([0], (c, x) => (x === 9 || x === 12 ? 'w' : cloth(c) ? 'd' : null)); each([1], (c, x) => (x === 10 || x === 11 ? 'w' : null)); }
-        each([4], (c, x) => (x >= 6 && x <= 15 ? 'r' : null));
-        each([3, 4], (c, x) => (c === 's' ? 'D' : null));
-        each([5], (c, x) => (x === 5 || x === 16 ? 'D' : null));
-        each([7, 8], (c, x) => (x === 4 || x === 17 ? '.' : null));
-        each([2, 6], (c, x) => (c === 'd' && x % 4 === 1 ? 'R' : null));
-        break;
-      case 'china': // 金のふちどり、立てえり、スリット
-        each([0], (c, x) => (cloth(c) ? (x >= 9 && x <= 12 ? 'w' : 'd') : null));
-        if (!back) { each([1, 2], (c, x) => (x === 12 ? 'w' : null)); each([7, 8], (c, x) => (x === 12 ? 's' : null)); }
-        each([8], c => (c === 'D' ? 'w' : null));
-        break;
-      case 'witch': // すそがギザギザ
-        each([8], (c, x) => (c === 'D' && x % 2 ? '.' : null));
-        each([0], c => (c === 'w' ? 'w' : null));
-        break;
-      case 'santa': // 白いファー
-        each([0], c => (cloth(c) ? 'D' : null));
-        if (!back) each([1, 2, 3], (c, x) => (x === 11 ? 'r' : null));
-        break;
-      default:
-    }
-    return b;
+  function frontRows(legs, shut, look, sitting) {
+    const [top, bottom] = applyOutfit(TOP, BOTTOM, outfitStyle(look), false);
+    const lower = sitting ? [bottom[0], bottom[1], '.....TTTTTTTTTTT.....', '.......lll.lll.......', '.......bbb.bbb.......'] : [...bottom, ...(LEGS[legs] || LEGS.stand)];
+    return applyHair([...HEAD, ...(shut ? FACE_SHUT : FACE_OPEN), ...JAW, ...top, ...lower], look.hair, false);
   }
-  const outfitStyle = look => (OUTFITS[look.outfit] || {}).style;
-  function frontRows(legs, shut, look) {
-    const rows = [...HEAD, ...(shut ? EYES_SHUT : EYES_OPEN), ...FACE_LOW, ...applyOutfit(BODY, outfitStyle(look), false), ...(LEGS[legs] || LEGS.stand)];
-    return applyHair(rows, look.hair, false);
-  }
-  function backRows(legs, look) {
-    let rows = [...HEAD, ...EYES_SHUT, ...FACE_LOW].map(r => r.replace(/[sSceEWmk]/g, 'h'));
-    rows = rows.concat(applyOutfit(BODY.map(r => r.replace(/r/g, 'd')), outfitStyle(look), true), LEGS[legs] || LEGS.stand);
-    return applyHair(rows, look.hair, true);
+  function backRows(look) {
+    const head = [...HEAD, ...FACE_SHUT].map(r => r.replace(/[sSqeijIwcm]/g, 'h'));
+    const jaw = [JAW[0].replace(/s/g, 'h'), look.hair === 'long' ? JAW[1].replace(/S/g, 'h') : JAW[1]];
+    const [top, bottom] = applyOutfit(TOP, BOTTOM, outfitStyle(look), true);
+    return applyHair([...head, ...jaw, ...top, ...bottom, ...LEGS.stand], look.hair, true);
   }
   function girlPal(look) {
-    const hc = HAIR_COLORS[look.hairColor] || HAIR_COLORS.brown, of = OUTFITS[look.outfit] || OUTFITS.mizuiro;
+    const hc = HAIR_COLORS[look.hairColor] || HAIR_COLORS.brown, of = OUTFITS[look.outfit] || OUTFITS.cardigan;
     return {
-      h: hc.h, H: hc.H, k: hc.k, r: of.r, R: '#ffd0dc', s: '#ffe6d6', S: '#f8c9b4',
-      c: '#ffa3b5', e: '#3b2a5c', E: '#6b56a8', W: '#ffffff', m: '#d0607a', d: of.d, D: of.D,
-      w: of.w, l: '#ffffff', b: '#7a4060', o: C.wood, O: C.woodL,
+      h: hc.h, H: hc.H, s: '#f6dcc8', S: '#e9c4ad', q: '#b89a86', e: '#43332d', i: '#4a342c', j: '#6e4e3e', I: '#a88068', w: '#ffffff', c: '#f3c0b2', m: '#c98070',
+      k: of.k, K: of.K, n: of.n, t: of.t, T: of.T, u: of.u, r: of.r, l: '#efcfb8', b: '#5a4636', o: C.wood, O: C.woodL,
     };
   }
   // pose: stand / a / b（歩き） / back（後ろ姿） / sitBack（いすに座って机に向かう） / sitFront（ソファに座る）
@@ -306,17 +317,17 @@
     } else {
       const pal = girlPal(look);
       let rows;
-      if (pose === 'back') rows = backRows('stand', look);
+      if (pose === 'back') rows = backRows(look);
       else if (pose === 'sitBack') {
         // 後ろ姿の上半分に、いすの背もたれを重ねる
-        const base = backRows('stand', look);
-        rows = base.slice(0, 21).concat(CHAIR.map((chair, j) => {
+        const base = backRows(look), at = ROW.top + 3;
+        rows = base.slice(0, at).concat(CHAIR.map((chair, j) => {
           if (j >= 4) return chair;
-          let out = base[21 + j];
+          let out = base[at + j];
           for (let x = 0; x < chair.length; x++) if (chair[x] !== '.') out = set(out, x, chair[x]);
           return out;
         }));
-      } else if (pose === 'sitFront') rows = frontRows('sit', shut, look);
+      } else if (pose === 'sitFront') rows = frontRows('stand', shut, look, true);
       else rows = frontRows(pose, shut, look);
       c = sprite(GIRL_W, rows.length, P => P.map(0, 0, rows, pal), GIRL_OUTLINE);
     }
@@ -324,16 +335,15 @@
     girlCache.set(key, c);
     return c;
   }
-  // ベッドで寝ている顔
   // お店のマネキン（服を着せて飾る）
   function mannequinSprite(outfit) {
     const key = 'mq|' + outfit;
     if (girlCache.has(key)) return girlCache.get(key);
-    const head = ['.........nnnn.........', '........nnnnnn........', '........nnnnnn........', '........nnnnnn........', '.........nnnn.........', '..........nn..........'];
-    const body = applyOutfit(BODY, (OUTFITS[outfit] || {}).style, false).map(r => r.replace(/[hHk]/g, '.').replace(/s/g, 'n'));
-    const legs = LEGS.stand.map(r => r.replace(/[slb]/g, 'n'));
-    const rows = [...head, ...body, ...legs, '..........pp..........', '.......pppppppp.......'];
-    const pal = { ...girlPal({ hair: 'long', hairColor: 'brown', outfit }), n: '#f0dcc8', p: '#5b5068' };
+    const head = ['........nnnnn........', '.......nnnnnnn.......', '.......nnnnnnn.......', '.......nnnnnnn.......', '........nnnnn........', '.........nnn.........'];
+    const [top, bottom] = applyOutfit(TOP, BOTTOM, (OUTFITS[outfit] || {}).style, false);
+    const body = [...top, ...bottom].map(r => r.replace(/[hH]/g, '.').replace(/s/g, 'n'));
+    const rows = [...head, ...body, '.........n.n.........', '..........p..........', '.......ppppppp.......'];
+    const pal = { ...girlPal({ hair: 'long', hairColor: 'brown', outfit }), n: '#f0dcc8', p: '#5b5068', l: '#f0dcc8' };
     const c = sprite(GIRL_W, rows.length, P => P.map(0, 0, rows, pal));
     girlCache.set(key, c);
     return c;
@@ -342,24 +352,24 @@
   function wigSprite(style, color = 'brown') {
     const key = 'wig|' + style + color;
     if (girlCache.has(key)) return girlCache.get(key);
-    let rows = applyHair([...HEAD, ...EYES_SHUT, ...FACE_LOW, ...BODY.slice(0, 3)], style, false);
-    rows = rows.map(r => r.replace(/[sSceEWmk]/g, 'n').replace(/[dDw]/g, '.').replace(/r/g, style === 'long' ? '.' : 'r'));
-    rows = rows.map((r, i) => (i >= 18 ? r.replace(/n/g, '.') : r));
-    rows.push('.........pppp.........', '.......pppppppp.......');
-    rows[18] = set(set(rows[18], 10, 'p'), 11, 'p'); rows[19] = set(set(rows[19], 10, 'p'), 11, 'p'); rows[20] = set(set(rows[20], 10, 'p'), 11, 'p');
-    const pal = { ...girlPal({ hair: style, hairColor: color, outfit: 'mizuiro' }), n: '#f0dcc8', p: '#5b5068' };
+    let rows = applyHair([...HEAD, ...FACE_SHUT, ...JAW, ...TOP.slice(0, 3)], style, false);
+    rows = rows.map(r => r.replace(/[sSqeijIwcm]/g, 'n').replace(/[kKt]/g, '.'));
+    rows = rows.map((r, i) => (i >= ROW.jaw + 1 ? set(set(set(r.replace(/n/g, '.'), 9, 'p'), 10, 'p'), 11, 'p') : r));
+    rows.push('.......ppppppp.......');
+    const pal = { ...girlPal({ hair: style, hairColor: color, outfit: 'cardigan' }), n: '#f0dcc8', p: '#5b5068' };
     const c = sprite(GIRL_W, rows.length, P => P.map(0, 0, rows, pal));
     girlCache.set(key, c);
     return c;
   }
+  // ベッドで寝ている顔
   const SLEEP_HEAD = [
     '..hhhhhhhh..',
     '.hhhhHHhhhh.',
     'hhhhhhhhhhhh',
-    'hhhshhhhshhh',
+    'hhhsHhhhhhhh',
     'hhssssssssh.',
-    'hseessssseeh',
-    'hsccsssscch.',
+    'hseesssseesh',
+    'hscssmssscsh',
     '.hssssssssh.',
   ];
 
@@ -562,7 +572,7 @@
         P.r(16, by, 36, 17 - by, N.linen).r(16, by, 36, 1, N.linenL).r(38, by, 14, 17 - by, N.sageL).r(38, by, 1, 17 - by, N.sage);
         if (st.sleep) {
           const hc = HAIR_COLORS[st.hairColor] || HAIR_COLORS.brown;
-          P.map(5, 2, SLEEP_HEAD, { h: hc.h, H: hc.H, s: '#ffe6d6', e: '#3b2a5c', c: '#ffa3b5' });
+          P.map(5, 2, SLEEP_HEAD, { h: hc.h, H: hc.H, s: '#f6dcc8', e: '#43332d', c: '#f3c0b2', m: '#c98070' });
           P.r(16, 7, 36, 1, N.linenD);
         }
       },
