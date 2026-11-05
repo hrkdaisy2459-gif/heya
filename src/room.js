@@ -19,7 +19,7 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   const pick = arr => arr[Math.floor(Math.random() * arr.length)];
 
-  const ROOMS = { main: { name: 'へや', w: 720 }, shop: { name: 'おみせ', w: 800 } };
+  const ROOMS = { main: { name: 'へや', w: 720 }, outside: { name: 'おそと', w: 520 }, shop: { name: 'おみせ', w: 800 } };
   const SIDE = { natural: '#e8e2d8', shop: '#e8dccb', pink: '#efcdd7', mint: '#cdeadf', flower: '#f0e2c8', wood: '#c4925f', wa: '#e2d1ad', stars: '#1f2448', luxe: '#f3e6e2', brick: '#9e5340', china: '#a51c30' };
 
   /* ---------- 保存 ---------- */
@@ -27,6 +27,7 @@
   const defaultItems = () => [
     // へや（ナチュラルミニマル）
     { id: 22, room: 'main', type: 'slat', x: 208, y: 82 },
+    { id: 1, room: 'main', type: 'door', x: 22, d: 0.02 },
     { id: 2, room: 'main', type: 'shelf', x: 58, d: 0.03 },
     { id: 21, room: 'main', type: 'plant', x: 86, d: 0.06 },
     { id: 3, room: 'main', type: 'window', x: 126, y: 64 },
@@ -50,9 +51,9 @@
     { id: 23, room: 'main', type: 'plant', x: 698, d: 0.06 },
   ];
   const DEFAULT = {
-    ver: 6,
+    ver: 7,
     room: 'main',
-    rooms: { main: { wall: 'natural', floor: 'oak', cam: 120 }, shop: { wall: 'shop', floor: 'wood', cam: 0 } },
+    rooms: { main: { wall: 'natural', floor: 'oak', cam: 120 }, outside: { wall: 'houseExt', floor: 'paving', cam: 0 }, shop: { wall: 'shop', floor: 'wood', cam: 0 } },
     home: 'main',
     items: defaultItems(),
     nextId: 100,
@@ -119,7 +120,12 @@
     S.ver = 5;
   }
   delete S.rooms.kitchen;
-  S.ver = 6;
+  // ドアを戻す（v7）：へやのドアから家の外へ出られる
+  if ((S.ver || 0) < 7 && !S.items.some(i => i.room === 'main' && i.type === 'door')) {
+    S.nextId = Math.max(S.nextId || 100, 100);
+    S.items.push({ id: S.nextId++, room: 'main', type: 'door', x: 22, d: 0.02 });
+  }
+  S.ver = 7;
   if (!S.memos.length) S.memos = [{ id: 1, text: '' }];
   let saveT = 0;
   const save = () => {
@@ -298,7 +304,34 @@
   let drawn = [];               // 直前に描いたもの（クリック判定用）
   const RW = () => ROOMS[S.room].w;
   const R = () => S.rooms[S.room];
-  const roomItems = (room = S.room) => (room === 'shop' ? shopRoom.items : S.items.filter(i => i.room === room));
+  const roomItems = (room = S.room) => (room === 'shop' ? shopRoom.items : room === 'outside' ? outsideRoom.items : S.items.filter(i => i.room === room));
+  // 家の外（通り）：左に自分の家、真ん中に空と木と街灯、右におみせ
+  const outsideRoom = (() => {
+    let id = -1000;
+    const it = o => ({ id: id--, room: 'outside', ...o });
+    return {
+      segs: [
+        { x0: 0, x1: 176, wall: 'houseExt', floor: 'paving' },
+        { x0: 176, x1: 336, wall: 'open', floor: 'paving' },
+        { x0: 336, x1: 520, wall: 'shopExt', floor: 'paving' },
+      ],
+      items: [
+        it({ type: 'houseWindow', x: 42, y: 56 }),
+        it({ type: 'houseDoor', x: 100, d: 0.02 }),
+        it({ type: 'planter', x: 138, d: 0.05 }),
+        it({ type: 'mailbox', x: 160, d: 0.28 }),
+        it({ type: 'tree', x: 212, d: 0.02 }),
+        it({ type: 'bicycle', x: 236, d: 0.3 }),
+        it({ type: 'streetLamp', x: 262, d: 0.1 }),
+        it({ type: 'bench', x: 302, d: 0.08 }),
+        it({ type: 'shopSignExt', x: 400, y: 22 }),
+        it({ type: 'awning', x: 400, y: 40 }),
+        it({ type: 'shopWindowExt', x: 392, y: 80 }),
+        it({ type: 'shopDoorExt', x: 452, d: 0.02 }),
+        it({ type: 'planter', x: 494, d: 0.05 }),
+      ],
+    };
+  })();
   let shopRoom = { items: [], segs: [{ x0: 0, x1: 800, wall: 'shop', floor: 'wood', key: 'entrance', label: '', desc: '' }] };
   const findType = (type, room) => S.items.find(i => i.type === type && (!room || i.room === room));
 
@@ -363,6 +396,11 @@
   const isNight = () => { const h = new Date().getHours(); return h < 5; };
   const tvOn = () => roomItems().some(i => i.type === 'tv' && i.on);
   function decide(now) {
+    if (S.room === 'outside') {
+      const bench = outsideRoom.items.find(i => i.type === 'bench');
+      if (Math.random() < 0.3) return startAct('sofa', bench, rand(8000, 15000));
+      ch.tx = clamp(ch.x + rand(-90, 90), 20, RW() - 20); ch.td = clamp(REST_D + rand(-0.1, 0.25), 0.15, 0.7); ch.nextWander = now + rand(5000, 10000); return;
+    }
     if (S.room === 'shop') {
       const prods = shopRoom.items.filter(i => i.shopId);
       if (Math.random() < 0.3) { ch.tx = clamp(ch.x + rand(-80, 80), 20, RW() - 20); ch.td = REST_D; ch.nextWander = now + rand(5000, 9000); return; }
@@ -437,7 +475,7 @@
   let blinkOn = true;
   function stateFor(it, frame) {
     const now = new Date();
-    if (it.room === 'shop' && it.type !== 'door') return { ref: it.ref, sky: skyNow(), frame, on: true, blink: (performance.now() % 3300) < 150, h: now.getHours(), m: now.getMinutes(), s: now.getSeconds(), tier: 3, month: now.getMonth() + 1, day: now.getDate(), lcd: '25:00', mode: 'timer', memo: true, todos: 3, season: seasonNow(), weather: weatherNow() };
+    if ((it.room === 'shop' || it.room === 'outside') && it.type !== 'door') return { ref: it.ref, sky: skyNow(), frame, on: it.room === 'outside' ? S.light.on : true, blink: (performance.now() % 3300) < 150, h: now.getHours(), m: now.getMinutes(), s: now.getSeconds(), tier: 3, month: now.getMonth() + 1, day: now.getDate(), lcd: '25:00', mode: 'timer', memo: true, todos: 3, season: seasonNow(), weather: weatherNow() };
     switch (it.type) {
       case 'clock': return { h: now.getHours(), m: now.getMinutes(), s: now.getSeconds(), alarm: S.alarms.some(a => a.on) };
       case 'timer': {
@@ -463,7 +501,7 @@
       case 'radio': return { on: !!S.bgm.kind };
       case 'calendar': return { month: now.getMonth() + 1, day: now.getDate(), event: !!(S.events[dateKey()] || '').trim() };
       case 'trophy': return { tier: S.stats.stars >= 60 ? 3 : S.stats.stars >= 30 ? 2 : S.stats.stars >= 10 ? 1 : 0 };
-      case 'door': return { to: 'main' };
+      case 'door': return { to: 'outside' };
       case 'fishbowl': return { frame };
       case 'box': return {};
       default: return { frame, on: !!it.on, sky: skyNow() };
@@ -489,6 +527,22 @@
     return hi < lo ? (RW() - vw) / 2 : clamp(c, lo, hi);
   }
   const patCache = new Map();
+  // 家の外の空（時間・季節・天気で変わる）と、奥の生けがき
+  const openCache = new Map();
+  function openTile(frame) {
+    const w = weatherNow(), key = [skyNow().k, seasonNow(), w, (w === 'rain' || w === 'snow' || w === 'cloudy') ? frame % 4 : 0].join('|');
+    let c = openCache.get(key);
+    if (!c) {
+      c = A.canvas(192, BACK); const P = A.painter(c.getContext('2d'));
+      A.drawOutside(P, 0, 0, 192, BACK - 6, { sky: skyNow(), season: seasonNow(), weather: w, frame });
+      P.r(0, BACK - 12, 192, 9, '#6f8f6a').r(0, BACK - 12, 192, 2, '#86a57f');
+      for (let x = 2; x < 192; x += 6) P.r(x, BACK - 16, 3, 13, '#f6f3ee').p(x + 1, BACK - 17, '#f6f3ee');
+      P.r(0, BACK - 10, 192, 1, '#e6e0d6').r(0, BACK - 3, 192, 3, '#b9b2a8');
+      if (openCache.size > 40) openCache.clear();
+      openCache.set(key, c);
+    }
+    return c;
+  }
   function render(now) {
     lastRender = now;
     const room = R(), W = RW();
@@ -503,7 +557,7 @@
 
     const L0 = sx(0, 0), R0 = sx(W, 0), L1 = sx(0, 1), R1 = sx(W, 1);
     // お店はコーナーごとに壁紙と床が変わる
-    const segs = S.room === 'shop' ? shopRoom.segs : [{ x0: 0, x1: W, wall: room.wall, floor: room.floor }];
+    const segs = S.room === 'shop' ? shopRoom.segs : S.room === 'outside' ? outsideRoom.segs : [{ x0: 0, x1: W, wall: room.wall, floor: room.floor }];
     // 左右の壁
     g.fillStyle = SIDE[segs[0].wall] || '#e8dccb';
     if (L0 > 0) g.fillRect(L1, 0, L0 - L1, H);
@@ -515,8 +569,9 @@
       if (a0 > vw + 4 && sx(sg.x0, 1) > vw + 4) continue;
       // 奥の壁（壁紙の模様をくり返す）
       if (a1 > 0 && a0 < vw) {
-        let pat = patCache.get(sg.wall);
-        if (!pat) { pat = g.createPattern(A.wallTile(sg.wall), 'repeat'); patCache.set(sg.wall, pat); }
+        let pat;
+        if (sg.wall === 'open') pat = g.createPattern(openTile(frame), 'repeat');
+        else { pat = patCache.get(sg.wall); if (!pat) { pat = g.createPattern(A.wallTile(sg.wall), 'repeat'); patCache.set(sg.wall, pat); } }
         pat.setTransform(new DOMMatrix([1, 0, 0, 1, -cam, 0]));
         g.fillStyle = pat; g.fillRect(a0, 0, a1 - a0, BACK);
       }
@@ -607,6 +662,12 @@
       }
       drawn.push({ e, spr, x0, y0 });
     }
+    // 外では雨や雪が手前にも降る
+    if (S.room === 'outside' && (weatherNow() === 'rain' || weatherNow() === 'snow')) {
+      const snow = weatherNow() === 'snow';
+      g.fillStyle = snow ? '#ffffff' : 'rgba(220,232,242,.8)';
+      for (let i = 0; i < 46; i++) { const x = (i * 37 + frame * (snow ? 1 : 5)) % vw, y = (i * 53 + frame * (snow ? 2 : 9)) % H; g.fillRect(x, y, 1, snow ? 1 : 3); }
+    }
     // ハートや音符
     parts = parts.filter(p => now - p.t0 < p.life);
     for (const p of parts) {
@@ -619,8 +680,8 @@
     const sky = skyNow();
     // 部屋の電気：つけると夜でも明るい。消すと窓と照明だけのあかり
     const outside = Math.max(sky.dark, weatherNow() === 'rain' && !sky.star ? 0.08 : 0);
-    const roomLit = S.light.on && S.room !== 'shop';
-    const dark = S.room === 'shop' ? outside * 0.25 : roomLit ? outside * 0.12 : outside + (sky.dark ? 0.08 : 0.06);
+    const roomLit = S.light.on && S.room === 'main';
+    const dark = S.room === 'outside' ? outside : S.room === 'shop' ? outside * 0.25 : roomLit ? outside * 0.12 : outside + (sky.dark ? 0.08 : 0.06);
     if (roomLit && S.light.warm) { // 電球色：白いところをほんのり暖かい色に
       g.globalCompositeOperation = 'multiply'; g.fillStyle = '#fff0dc'; g.fillRect(0, 0, vw, H);
       g.globalCompositeOperation = 'source-over'; g.fillStyle = 'rgba(255,200,130,.04)'; g.fillRect(0, 0, vw, H);
@@ -642,6 +703,7 @@
     if (editing) {
       for (const dw of drawn) {
         if (dw.e.char || dw.e.it.type === 'box' || dw.e.it.trial) continue;
+        if (dw.e.it.type === 'door') { dw.del = null; continue; }
         const { x0, y0, spr } = dw;
         g.fillStyle = (dw === hover) ? '#ffffff' : 'rgba(255,255,255,.75)';
         for (let x = x0; x < x0 + spr.width; x += 2) { g.fillRect(x, y0 - 1, 1, 1); g.fillRect(x, y0 + spr.height, 1, 1); }
@@ -740,7 +802,7 @@
       bs.title = inShop ? 'おうちに帰る' : 'おみせに行く'; bs.setAttribute('aria-label', bs.title);
       bs.classList.toggle('home', inShop);
     }
-    $('title').textContent = S.room === 'shop' ? 'おみせ' : (S.name ? `${S.name}の` : '') + 'へや';
+    $('title').textContent = S.room === 'shop' ? 'おみせ' : S.room === 'outside' ? 'おそと' : (S.name ? `${S.name}の` : '') + 'へや';
     const big = $('timerBig'); if (big) big.textContent = fmt(tleft);
     const ts = $('timerStart'); if (ts) ts.textContent = S.timer.running ? '一時停止' : (tleft < S.timer.dur && tleft > 0 ? '再開' : 'スタート');
     const pb = $('pomoBig'); if (pb) { pb.textContent = fmt(p.phase === 'idle' ? p.work * 60000 : pomoLeft()); pb.dataset.mode = p.phase; }
@@ -1752,16 +1814,19 @@
     const fade = $('fade');
     fade.classList.remove('on'); void fade.offsetWidth; fade.classList.add('on');
     setTimeout(() => {
-      if (to === 'shop') { if (S.room !== 'shop') S.home = S.room; buildShop(); }
+      const from = S.room;
+      if (to === 'shop') buildShop();
+      S.home = 'main';
       S.room = to;
-      const door = roomItems().find(i => i.type === 'door');
+      const door = to === 'outside' ? roomItems().find(i => i.type === (from === 'shop' ? 'shopDoorExt' : 'houseDoor')) : roomItems().find(i => i.type === 'door');
       const x = door ? door.x + 20 : 40;
       endAct();
       ch.x = ch.tx = x; ch.d = ch.td = REST_D; ch.face = 1;
       R().cam = clampCam(x - vw / 3);
       hover = null; closePanel();
       save(); refreshDynamic();
-      if (to === 'shop') {
+      if (to === 'outside') say(from === 'shop' ? pick(['いい買い物した〜', 'おうち帰ろっか']) : pick(['おでかけ〜', 'いい風', 'お散歩しよ']));
+      else if (to === 'shop') {
         say(pick(['おみせ着いた！', 'なに買おうかな'])); hostLater(() => catSay(catGreeting()), 900);
         if (!S.ui.shopHint) { S.ui.shopHint = true; hostLater(() => toast('おうちに帰るときは、右上の家のボタンか、入口のドアを押してね', null, 8000), 600); }
       }
@@ -1855,7 +1920,14 @@
       if (it.type === 'fitting') { walkNear(it); return say('マネキンを押すと、試着できるよ'); }
       if (it.type === 'hangSign' || it.type === 'pendant' || it.type === 'shopWindow') return;
     }
-    if (t.tool === 'door') return goRoom('main');
+    if (it.room === 'outside') {
+      if (it.type === 'houseDoor') return goRoom('main');
+      if (it.type === 'shopDoorExt' || it.type === 'shopWindowExt' || it.type === 'shopSignExt' || it.type === 'awning') return goRoom('shop');
+      if (it.type === 'mailbox') { walkNear(it); return say(pick(['なにも届いてないね', 'チラシだけ…'])); }
+      if (it.type === 'tree') { walkNear(it); return say({ spring: '桜、きれい〜', summer: '木かげ、すずしい', autumn: '紅葉してる！', winter: 'さむいね…' }[seasonNow()]); }
+      if (it.type === 'houseWindow' || it.type === 'streetLamp' || it.type === 'planter' || it.type === 'bicycle') { walkNear(it); return; }
+    }
+    if (t.tool === 'door') return goRoom('outside');
     if (t.tool) {
       if (ring && ring.kind === t.tool) stopRing();
       if (t.tool === 'memo') startAct('desk', it, 40000); else walkNear(it);
@@ -1899,7 +1971,7 @@
     say(S.light.on ? pick(['明るくなった！', 'よく見える〜']) : pick(['ちょっと暗いね', 'まったりモード']));
   });
   setLight(S.light.on);
-  $('btnEdit').addEventListener('click', () => { closeShop(); if (S.room === 'shop') return toast('おみせの中は模様替えできません'); setEditing(!editing); });
+  $('btnEdit').addEventListener('click', () => { closeShop(); if (S.room !== 'main') return toast('模様替えは、へやの中でできます'); setEditing(!editing); });
   $('btnShop').addEventListener('click', () => goRoom(S.room === 'shop' ? (S.home || 'main') : 'shop'));
   $('coins').addEventListener('click', () => (panelKind === 'wish' ? closePanel() : openPanel('wish', false)));
   $('coinIcon').src = coinURL();

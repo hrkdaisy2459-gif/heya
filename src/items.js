@@ -10,6 +10,7 @@
     I: ['111', '010', '010', '010', '111'], L: ['100', '100', '100', '100', '111'],
     N: ['101', '111', '111', '111', '101'], E: ['111', '100', '111', '100', '111'], W: ['101', '101', '111', '111', '101'],
     G: ['111', '100', '101', '101', '111'], A: ['010', '101', '111', '101', '101'], S: ['111', '100', '111', '001', '111'],
+    O: ['111', '101', '101', '101', '111'], P: ['111', '101', '111', '100', '100'],
   };
   function letters(P, x, y, str, col, scale) {
     for (const ch of str) {
@@ -482,7 +483,126 @@
     gachaM: { name: 'ガチャマシン', w: 26, h: 40, light: () => true, custom: () => A.GACHA[0] },
     shopcat: { name: '店員さん', w: 24, h: 26, custom: st => A.SHOP_CAT[st.blink ? 1 : 0] },
   };
-  for (const t of Object.values(SHOP_TYPES)) t.deco = true; // お店専用（模様替えには出さない）
+  /* ---------- 家の外（通り） ---------- */
+  const TREE = { spring: ['#f4c6d4', '#e8a9bd'], summer: ['#6f8f6a', '#4f6e4d'], autumn: ['#d9935a', '#b8703f'], winter: ['#e9eef2', '#cfd8e0'] };
+  Object.assign(SHOP_TYPES, {
+    houseDoor: {
+      name: '玄関', w: 28, h: 58, key: st => (st.sky.star ? 'n' : 'd'),
+      draw(P, st) {
+        P.r(0, 6, 28, 50, '#d8c3a5').r(2, 8, 24, 48, '#c9a07a').r(4, 10, 20, 46, '#d4b28a');
+        P.r(11, 14, 6, 14, '#bcd9e8').r(12, 15, 1, 12, '#e9f3f6');
+        P.r(5, 33, 18, 1, '#b89068').r(20, 36, 2, 1, '#2f2c28').r(20, 37, 1, 2, '#2f2c28');
+        P.r(11, 0, 6, 5, '#2f2c28').r(12, 2, 4, 3, st.sky.star ? '#ffe9b0' : '#f4efe4');
+        P.r(-2, 56, 32, 2, '#b9b2a8');
+      },
+    },
+    houseWindow: {
+      name: '家の窓', wall: true, w: 32, h: 28, y: 54, light: st => st.on && st.sky.star,
+      key: st => `${st.on ? 1 : 0}${st.sky.k}`,
+      draw(P, st) {
+        const inside = st.on ? (st.sky.star ? '#ffe2a8' : '#f4ead8') : st.sky.star ? '#4a5260' : '#bcd9e8';
+        P.r(0, 0, 32, 26, '#ffffff').r(2, 2, 28, 22, inside).r(15, 2, 2, 22, '#ffffff').r(2, 12, 28, 2, '#ffffff');
+        if (!st.on && !st.sky.star) P.line(5, 20, 11, 4, '#e9f3f6');
+        if (st.on) P.r(3, 3, 5, 8, '#efe6d4').r(24, 3, 5, 8, '#efe6d4');
+        P.r(-1, 25, 34, 3, '#d4b28a');
+      },
+    },
+    mailbox: {
+      name: 'ポスト', w: 12, h: 28,
+      draw(P) { P.r(5, 10, 2, 18, '#2f2c28').r(0, 2, 12, 9, '#2f2c28').r(1, 3, 10, 2, '#4a4540').r(10, 0, 2, 5, '#9aab8c').r(0, 26, 12, 2, '#b9b2a8'); },
+    },
+    planter: {
+      name: '植木', w: 24, h: 18, key: st => st.season || 'summer',
+      draw(P, st) {
+        const flowers = { spring: '#f4a7bd', summer: '#ffffff', autumn: '#e8b04a', winter: '#c9302c' }[st.season || 'summer'];
+        P.ell(6, 6, 5, 4, '#6f8f6a').ell(16, 5, 6, 5, '#4f6e4d').ell(12, 7, 5, 4, '#6f8f6a');
+        [[4, 4], [9, 3], [15, 2], [19, 5], [12, 6]].forEach(([x, y]) => P.p(x, y, flowers));
+        P.r(1, 10, 22, 8, '#b89068').r(1, 10, 22, 1, '#d4b28a').r(1, 14, 22, 1, '#9a7552');
+      },
+    },
+    streetLamp: {
+      name: '街灯', w: 12, h: 72, light: st => !!st.sky.star,
+      key: st => (st.sky.star ? 'n' : 'd'),
+      draw(P, st) {
+        P.r(5, 10, 2, 60, '#2f2c28').r(3, 68, 6, 4, '#2f2c28');
+        P.r(1, 2, 10, 2, '#2f2c28').r(2, 4, 8, 6, st.sky.star ? '#ffe9b0' : '#f1efe9').r(4, 0, 4, 2, '#2f2c28').r(2, 10, 8, 1, '#2f2c28');
+      },
+    },
+    bench: {
+      name: 'ベンチ', w: 38, h: 18, act: 'sofa',
+      draw(P) {
+        P.r(2, 0, 34, 3, '#d4b28a').r(2, 4, 34, 3, '#c9a07a').r(0, 9, 38, 3, '#d4b28a').r(0, 11, 38, 1, '#b89068');
+        P.r(4, 2, 2, 16, '#2f2c28').r(32, 2, 2, 16, '#2f2c28').r(3, 12, 4, 1, '#2f2c28').r(31, 12, 4, 1, '#2f2c28');
+      },
+    },
+    tree: {
+      name: '木', w: 44, h: 76, key: st => st.season || 'summer',
+      draw(P, st) {
+        const [a, b] = TREE[st.season || 'summer'];
+        P.r(20, 40, 5, 36, '#8a6a52').line(22, 46, 13, 36, '#8a6a52').line(23, 44, 32, 34, '#8a6a52');
+        if (st.season === 'winter') { P.line(13, 36, 8, 26, '#8a6a52').line(32, 34, 38, 24, '#8a6a52').line(22, 40, 22, 18, '#8a6a52'); P.r(8, 25, 4, 1, a).r(34, 23, 5, 1, a).r(20, 17, 5, 1, a); return; }
+        [[22, 18, 16, 14, b], [12, 28, 11, 10, b], [32, 26, 11, 10, b], [22, 14, 13, 11, a], [13, 24, 8, 7, a], [31, 22, 8, 7, a]].forEach(([x, y, rx, ry, c]) => P.ell(x, y, rx, ry, c));
+        if (st.season === 'spring') [[16, 10], [27, 16], [10, 26], [34, 28], [22, 26]].forEach(([x, y]) => P.p(x, y, '#ffffff'));
+      },
+    },
+    bicycle: {
+      name: '自転車', w: 32, h: 18,
+      draw(P) {
+        P.ell(7, 12, 5, 5, '#2f2c28').ell(7, 12, 4, 4, 'rgba(0,0,0,0)').ell(25, 12, 5, 5, '#2f2c28');
+        P.ell(7, 12, 3, 3, '#f2eee7').ell(25, 12, 3, 3, '#f2eee7');
+        P.line(7, 12, 13, 4, '#9aab8c').line(13, 4, 22, 4, '#9aab8c').line(22, 4, 25, 12, '#9aab8c').line(13, 4, 16, 12, '#9aab8c').line(16, 12, 7, 12, '#9aab8c').line(16, 12, 22, 4, '#9aab8c');
+        P.r(11, 2, 5, 1, '#2f2c28').r(21, 1, 4, 1, '#2f2c28').r(22, 6, 6, 3, '#d4b28a');
+      },
+    },
+    shopDoorExt: {
+      name: 'おみせの入口', w: 28, h: 58, key: st => (st.sky.star ? 'n' : 'd'),
+      draw(P, st) {
+        P.r(0, 2, 28, 56, '#3f6f5a').r(3, 5, 22, 53, st.sky.star ? '#ffe2a8' : '#cfe3ea').r(13, 5, 2, 53, '#3f6f5a');
+        P.r(6, 18, 16, 8, '#ffffff').r(6, 18, 16, 1, '#c9a24a');
+        letters(P, 8, 20, 'OPEN', '#3f6f5a', 1);
+        P.r(10, 34, 1, 6, '#c9a24a').r(17, 34, 1, 6, '#c9a24a');
+        P.r(-2, 56, 32, 2, '#b9b2a8');
+      },
+    },
+    shopWindowExt: {
+      name: 'ショーウィンドウ', wall: true, w: 54, h: 36, y: 80, light: st => !!st.sky.star,
+      key: st => (st.sky.star ? 'n' : 'd'),
+      draw(P, st) {
+        P.r(0, 0, 54, 34, '#3f6f5a').r(3, 3, 48, 28, st.sky.star ? '#ffe9c0' : '#dcebf0');
+        P.r(8, 18, 6, 13, '#f4efe4').r(7, 16, 8, 3, '#f7c6d3').r(10, 19, 1, 12, GOLD);
+        P.ell(27, 22, 7, 5, '#e4ddd0').r(20, 22, 15, 6, '#e4ddd0').r(22, 28, 2, 3, '#b89068').r(31, 28, 2, 3, '#b89068');
+        P.r(41, 20, 6, 11, '#f4f1ea').ell(44, 15, 4, 5, '#6f8f6a');
+        if (!st.sky.star) P.line(6, 12, 14, 4, '#ffffff').line(36, 10, 42, 4, '#ffffff');
+        P.r(-1, 32, 56, 4, '#2f5444');
+      },
+    },
+    awning: {
+      name: '日よけ', wall: true, w: 84, h: 12, y: 40,
+      draw(P) {
+        for (let x = 0; x < 84; x += 12) P.r(x, 0, 6, 9, '#9aab8c').r(x + 6, 0, 6, 9, '#f6f3ee');
+        for (let x = 0; x < 84; x += 6) P.ell(x + 3, 9, 3, 2, (x / 6) % 2 ? '#f6f3ee' : '#9aab8c');
+        P.r(0, 0, 84, 1, '#6b7f5f');
+      },
+    },
+    shopSignExt: {
+      name: 'おみせの看板', wall: true, w: 44, h: 14, y: 22,
+      draw(P) { P.r(0, 0, 44, 14, '#2f5444').r(1, 1, 42, 1, '#4f8a72'); letters(P, 6, 4, 'SHOP', '#e6cf9a', 1); P.ell(36, 7, 3, 3, '#e6cf9a').r(35, 6, 1, 1, '#2f5444').r(37, 6, 1, 1, '#2f5444'); },
+    },
+  });
+  Object.assign(A.WALLS, {
+    houseExt: { name: '家の外壁', tw: 16, draw(P) {
+      P.r(0, 0, 16, A.BACK, '#f6f3ee');
+      for (let y = 4; y < A.BACK - 8; y += 5) P.r(0, y, 16, 1, '#e6e0d6');
+      P.r(0, 0, 16, 3, '#d4b28a').r(0, A.BACK - 8, 16, 8, '#b9b2a8').r(0, A.BACK - 8, 16, 1, '#cfc9c0').r(7, A.BACK - 7, 1, 7, '#a9a298');
+    } },
+    shopExt: { name: 'おみせの外壁', tw: 20, draw(P) {
+      P.r(0, 0, 20, A.BACK, '#efe6d6').r(0, 0, 20, 3, '#3f6f5a');
+      for (let y = 6; y < 46; y += 6) P.r(((y / 6) % 2) * 10, y, 10, 1, '#e3d8c4');
+      P.r(0, 46, 20, A.BACK - 46, '#3f6f5a').r(3, 52, 14, A.BACK - 60, '#4f8a72').r(0, A.BACK - 4, 20, 4, '#2f5444');
+    } },
+  });
+  Object.assign(A.FLOORS, { paving: { name: '石だたみ', kind: 'checker', bw: 14, a: '#d3cec6', b: '#c8c2b9', seam: '#aaa39a' } });
+  for (const t of Object.values(SHOP_TYPES)) t.deco = true; // お店や外専用（模様替えには出さない）
   Object.assign(A.TYPES, SHOP_TYPES);
   Object.assign(A.WALLS, {
     shop: { name: 'おみせの壁', tw: 20, draw(P) {

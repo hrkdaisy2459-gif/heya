@@ -644,7 +644,7 @@
         P.r(0, 0, 24, 54, N.oak).r(2, 2, 20, 52, N.white).r(2, 2, 20, 1, '#ece8e0');
         P.r(17, 30, 3, 1, N.black).r(17, 31, 1, 2, N.black);
         P.r(7, 10, 10, 7, N.black);
-        if (st.to === 'kitchen') P.r(9, 12, 5, 4, N.white).r(14, 13, 1, 2, N.white);
+        if (st.to === 'outside') P.map(9, 11, ['.x.x.', '..x..', 'xxxxx', '..x..', '.x.x.'], { x: '#f0d27a' }); // 外へ：お日さま
         else P.map(9, 11, ['..x..', '.xxx.', 'xxxxx', '.x.x.'], { x: N.white });
       },
     },
